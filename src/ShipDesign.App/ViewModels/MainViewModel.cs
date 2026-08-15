@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media.Media3D;
@@ -16,35 +18,46 @@ namespace ShipDesign.App.ViewModels;
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly ShipAssembler? _assembler;
-    private readonly ShipTemplate _template;
     private ShipInstance? _currentShip;
 
+    private ShipTemplate _selectedTemplate;
     private Model3D? _shipModel;
     private string _statusText = "";
     private int _seed;
+    private string _seedInput = "";
+
+    public IReadOnlyList<ShipTemplate> AvailableTemplates { get; } = ShipTemplateCatalog.All;
+
+    public ShipTemplate SelectedTemplate
+    {
+        get => _selectedTemplate;
+        set
+        {
+            if (ReferenceEquals(_selectedTemplate, value))
+                return;
+            _selectedTemplate = value;
+            OnPropertyChanged();
+            Regenerate();
+        }
+    }
 
     public Model3D? ShipModel { get => _shipModel; private set { _shipModel = value; OnPropertyChanged(); } }
     public string StatusText { get => _statusText; private set { _statusText = value; OnPropertyChanged(); } }
-    public int Seed { get => _seed; private set { _seed = value; OnPropertyChanged(); } }
+    public int Seed { get => _seed; private set { _seed = value; OnPropertyChanged(); SeedInput = value.ToString(); } }
+    public string SeedInput { get => _seedInput; set { _seedInput = value; OnPropertyChanged(); } }
+    public IReadOnlyList<string> PartsSummary { get; private set; } = Array.Empty<string>();
 
     public ICommand RegenerateCommand { get; }
+    public ICommand GenerateWithSeedCommand { get; }
     public ICommand ExportCommand { get; }
 
     public MainViewModel()
     {
         RegenerateCommand = new RelayCommand(_ => Regenerate(), _ => _assembler is not null);
+        GenerateWithSeedCommand = new RelayCommand(_ => GenerateWithSeed(), _ => _assembler is not null);
         ExportCommand = new RelayCommand(_ => Export(), _ => _currentShip is not null);
 
-        _template = new ShipTemplate
-        {
-            Name = "Fighter",
-            HullPartId = "hull_fighter_01",
-            Slots = new[]
-            {
-                new SlotDefinition { SocketPattern = "wing_", PartCategory = PartCategory.Wing, MinCount = 2, MaxCount = 2 },
-                new SlotDefinition { SocketPattern = "engine_", PartCategory = PartCategory.Engine, MinCount = 2, MaxCount = 2 },
-            }
-        };
+        _selectedTemplate = AvailableTemplates[0];
 
         var partsDirectory = FindPartsDirectory();
         if (partsDirectory is null)
@@ -64,17 +77,31 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Regenerate();
     }
 
-    private void Regenerate()
+    private void Regenerate() => Assemble(Environment.TickCount);
+
+    private void GenerateWithSeed()
+    {
+        if (int.TryParse(SeedInput, out var seed))
+            Assemble(seed);
+        else
+            StatusText = $"Seed invalide : '{SeedInput}'";
+    }
+
+    private void Assemble(int seed)
     {
         if (_assembler is null)
             return;
 
-        Seed = Environment.TickCount;
+        Seed = seed;
         try
         {
-            _currentShip = _assembler.Assemble(_template, Seed);
+            _currentShip = _assembler.Assemble(SelectedTemplate, seed);
             ShipModel = BuildModel(_currentShip);
-            StatusText = $"Vaisseau '{_template.Name}' généré (seed {Seed}, {_currentShip.Parts.Count} pièce(s)).";
+            PartsSummary = _currentShip.Parts
+                .Select(p => $"{p.Part.Category} — {p.Part.Id}")
+                .ToList();
+            OnPropertyChanged(nameof(PartsSummary));
+            StatusText = $"Vaisseau '{SelectedTemplate.Name}' généré (seed {seed}, {_currentShip.Parts.Count} pièce(s)).";
         }
         catch (InvalidOperationException ex)
         {
@@ -89,7 +116,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         var dialog = new SaveFileDialog
         {
-            FileName = $"{_template.Name.ToLowerInvariant()}_{Seed}.glb",
+            FileName = $"{SelectedTemplate.Name.ToLowerInvariant()}_{Seed}.glb",
             Filter = "glTF binaire (*.glb)|*.glb"
         };
 

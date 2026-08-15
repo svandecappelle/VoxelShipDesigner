@@ -19,6 +19,17 @@ ExportPart(
     });
 
 ExportPart(
+    outputDir, "hull_scout_01",
+    BoxMesh.Create("hull", new Vector3(0.9f, 0.5f, 2.5f), new Vector4(0.6f, 0.5f, 0.4f, 1f)),
+    category: "Hull", sizeClass: "Small", tags: new[] { "scout" },
+    sockets: new (string, Vector3)[]
+    {
+        ("wing_L", new Vector3(-0.5f, 0f, 0.1f)),
+        ("wing_R", new Vector3(0.5f, 0f, 0.1f)),
+        ("engine_C", new Vector3(0f, 0f, -1.3f)),
+    });
+
+ExportPart(
     outputDir, "wing_basic_01",
     BoxMesh.Create("wing", new Vector3(1.4f, 0.08f, 0.6f), new Vector4(0.35f, 0.4f, 0.45f, 1f)),
     category: "Wing", sizeClass: "Medium", tags: new[] { "fighter" },

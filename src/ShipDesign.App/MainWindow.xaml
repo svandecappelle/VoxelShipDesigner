@@ -10,7 +10,7 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="180" />
+            <ColumnDefinition Width="230" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -27,9 +27,34 @@
         </h:HelixViewport3D>
 
         <StackPanel Grid.Row="0" Grid.Column="1" Margin="8">
+            <TextBlock Text="Modèle" FontWeight="Bold" Margin="0,0,0,4" />
+            <ComboBox ItemsSource="{Binding AvailableTemplates}"
+                      SelectedItem="{Binding SelectedTemplate}"
+                      DisplayMemberPath="Name"
+                      Margin="0,0,0,8" />
+
             <Button Content="Régénérer" Command="{Binding RegenerateCommand}" Padding="8,4" Margin="0,0,0,8" />
-            <Button Content="Exporter..." Command="{Binding ExportCommand}" Padding="8,4" />
-            <TextBlock Margin="0,16,0,0" Text="{Binding Seed, StringFormat='Seed : {0}'}" />
+
+            <TextBlock Text="Seed" FontWeight="Bold" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding SeedInput, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center" />
+                <Button Grid.Column="1" Content="Aller" Command="{Binding GenerateWithSeedCommand}" Padding="8,2" Margin="4,0,0,0" />
+            </Grid>
+
+            <Button Content="Exporter..." Command="{Binding ExportCommand}" Padding="8,4" Margin="0,0,0,16" />
+
+            <TextBlock Text="Pièces assemblées" FontWeight="Bold" Margin="0,0,0,4" />
+            <ItemsControl ItemsSource="{Binding PartsSummary}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" FontSize="11" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </StackPanel>
 
         <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="8" TextWrapping="Wrap" Text="{Binding StatusText}" />
