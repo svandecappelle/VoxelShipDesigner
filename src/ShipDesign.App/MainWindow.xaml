@@ -6,7 +6,7 @@
         xmlns:h="http://helix-toolkit.org/wpf"
         xmlns:local="clr-namespace:ShipDesign.App"
         mc:Ignorable="d"
-        Title="ShipDesign" Height="680" Width="1100"
+        Title="ShipDesign" Height="760" Width="1140"
         Background="{StaticResource BgDeepBrush}"
         FontFamily="{StaticResource MonoFont}"
         Foreground="{StaticResource TextPrimaryBrush}">
@@ -36,7 +36,7 @@
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="SHIPDESIGN" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold"
                                    FontSize="19" Foreground="{StaticResource TextPrimaryBrush}" />
-                        <TextBlock Text="ASSEMBLAGE MODULAIRE DE VAISSEAUX — EXPORT UNITY"
+                        <TextBlock Text="CONCEPTEUR PARAMÉTRIQUE DE COQUES — EXPORT UNITY"
                                    FontFamily="{StaticResource MonoFont}" FontSize="9.5"
                                    Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0" />
                     </StackPanel>
@@ -58,7 +58,7 @@
         <!-- ============ Main content ============ -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="320" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
@@ -68,78 +68,244 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16">
 
+                        <!-- Classe de coque -->
                         <Border Style="{StaticResource PanelBorderStyle}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
-                                               Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="MODÈLE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="CLASSE DE COQUE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
                                 </StackPanel>
-                                <ListBox Style="{StaticResource SegmentedListBoxStyle}"
-                                         ItemsSource="{Binding AvailableTemplates}"
-                                         SelectedItem="{Binding SelectedTemplate}"
-                                         DisplayMemberPath="Name" />
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullClasses}" SelectedItem="{Binding HullClass}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
                             </StackPanel>
                         </Border>
 
+                        <!-- Géométrie de coque -->
                         <Border Style="{StaticResource PanelBorderStyle}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
-                                               Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="GRAINE (SEED)" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="GÉOMÉTRIE DE COQUE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
                                 </StackPanel>
-                                <TextBox Style="{StaticResource ThemedTextBoxStyle}"
-                                         Text="{Binding SeedInput, UpdateSourceTrigger=PropertyChanged}"
-                                         Margin="0,0,0,8" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="APPLIQUER" Style="{StaticResource SecondaryButtonStyle}"
-                                            Command="{Binding GenerateWithSeedCommand}" Margin="0,0,6,0" />
-                                    <Button Content="↻ REJOUER" Style="{StaticResource SecondaryButtonStyle}"
-                                            Command="{Binding RegenerateCommand}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
-                        <Border Style="{StaticResource PanelBorderStyle}">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
-                                               Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="PIÈCES ASSEMBLÉES" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
-                                <Border Background="{StaticResource BgDeepBrush}" BorderBrush="{StaticResource LineCyanDimBrush}"
-                                        BorderThickness="1" CornerRadius="2">
-                                    <ListBox Style="{StaticResource PartsListBoxStyle}" Height="150"
-                                             ItemsSource="{Binding PartsSummary}"
-                                             SelectedItem="{Binding SelectedPartEntry}"
-                                             DisplayMemberPath="Text" />
-                                </Border>
-                                <Button Content="REMPLACER LA PIÈCE" Style="{StaticResource SecondaryButtonStyle}"
-                                        Command="{Binding ReplacePartCommand}" Margin="0,10,0,12" />
-
-                                <Grid Margin="0,0,0,6">
-                                    <TextBlock Text="ÉCHELLE" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right"
-                                               Text="{Binding SelectedPartScale, StringFormat='x{0:0.00}', Mode=OneWay}" />
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Longueur" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Length, StringFormat='{}{0:0.0} M'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="2"
-                                        Value="{Binding SelectedPartScale}" SmallChange="0.05" LargeChange="0.25"
-                                        TickFrequency="0.1" IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="6" Maximum="40" Value="{Binding Length}" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Maître-bau (largeur)" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Beam, StringFormat='{}{0:0.0} M'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="10" Value="{Binding Beam}" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Effilement du nez" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Taper, StringFormat='{}{0:P0}'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding Taper}" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Lignes de pont" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Decks}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="5" Value="{Binding Decks}" TickFrequency="1" IsSnapToTickEnabled="True" />
                             </StackPanel>
                         </Border>
 
+                        <!-- Ailes -->
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="AILES" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding WingStyles}" SelectedItem="{Binding WingStyle}" Margin="0,0,0,6">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Envergure" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSpan, StringFormat='{}{0:0.0} M'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="2" Maximum="14" Value="{Binding WingSpan}" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Angle de flèche" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSweepDegrees, StringFormat='{}{0:0}°'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="60" Value="{Binding WingSweepDegrees}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Propulsion -->
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="PROPULSION" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Nombre de tuyères" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding EngineCount}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="4" Value="{Binding EngineCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding EngineStyles}" SelectedItem="{Binding EngineStyle}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Cockpit -->
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="COCKPIT" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding CockpitStyles}" SelectedItem="{Binding CockpitStyle}" Margin="0,0,0,6">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Taille" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding CockpitSize, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="1.8" Value="{Binding CockpitSize}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Détails de surface -->
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="DÉTAILS DE SURFACE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Greebles}" Margin="0,0,8,0" />
+                                    <TextBlock Text="Panneaux &amp; greebles" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Densité" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding GreebleDensity, StringFormat='{}{0:P0}'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding GreebleDensity}" Margin="0,0,0,10" />
+
+                                <TextBlock Text="Graine (seed)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Style="{StaticResource ThemedTextBoxStyle}" Text="{Binding SeedText, UpdateSourceTrigger=PropertyChanged}" />
+                                    <Button Grid.Column="1" Content="OK" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ApplySeedCommand}" Margin="4,0,0,0" />
+                                    <Button Grid.Column="2" Content="↻" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RerollSeedCommand}" Margin="4,0,0,0" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Livrée -->
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="LIVRÉE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+
+                                <TextBlock Text="Coque" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ItemsControl ItemsSource="{Binding PresetColors}" Margin="0,0,0,10">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource SwatchButtonStyle}"
+                                                    Command="{Binding DataContext.SetHullColorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="Accent / plaques" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ItemsControl ItemsSource="{Binding PresetColors}" Margin="0,0,0,10">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource SwatchButtonStyle}"
+                                                    Command="{Binding DataContext.SetAccentColorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="Lueur réacteurs" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ItemsControl ItemsSource="{Binding PresetColors}" Margin="0,0,0,10">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource SwatchButtonStyle}"
+                                                    Command="{Binding DataContext.SetEngineGlowColorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="Teinte verrière" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ItemsControl ItemsSource="{Binding PresetColors}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource SwatchButtonStyle}"
+                                                    Command="{Binding DataContext.SetCockpitTintColorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Button Content="⚄ VAISSEAU ALÉATOIRE" Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding RandomizeShipCommand}" Margin="0,0,0,12" />
+
+                        <!-- Export -->
                         <Border Style="{StaticResource PanelBorderStyle}" Margin="0">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
-                                               Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
                                     <TextBlock Text="EXPORT" Style="{StaticResource PanelTitleStyle}" Margin="0" />
                                 </StackPanel>
-                                <Button Content="EXPORTER EN .GLB" Style="{StaticResource PrimaryButtonStyle}"
-                                        Command="{Binding ExportCommand}" />
-                                <TextBlock Margin="0,9,0,0" TextWrapping="Wrap" FontSize="10" LineHeight="16"
-                                           Foreground="{StaticResource TextDimBrush}">
+                                <Button Content="EXPORTER EN .GLB" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding ExportCommand}" />
+                                <TextBlock Margin="0,9,0,0" TextWrapping="Wrap" FontSize="10" LineHeight="16" Foreground="{StaticResource TextDimBrush}">
                                     Le fichier .glb s'importe directement dans Unity : glissez-le dans votre dossier
                                     <Run Foreground="{StaticResource TextPrimaryBrush}">Assets</Run>.
                                 </TextBlock>
@@ -163,11 +329,11 @@
 
                 <h:HelixViewport3D x:Name="Viewport" Background="Transparent" ShowCoordinateSystem="False">
                     <h:HelixViewport3D.DefaultCamera>
-                        <PerspectiveCamera Position="5,5,5" LookDirection="-5,-5,-5" UpDirection="0,1,0" />
+                        <PerspectiveCamera Position="18,12,22" LookDirection="-18,-12,-22" UpDirection="0,1,0" />
                     </h:HelixViewport3D.DefaultCamera>
                     <h:SunLight />
-                    <h:GridLinesVisual3D Width="8" Length="8" MinorDistance="1" MajorDistance="1"
-                                          Thickness="0.01" Fill="#2A5570" />
+                    <h:GridLinesVisual3D Width="20" Length="20" MinorDistance="2" MajorDistance="2"
+                                          Thickness="0.02" Fill="#2A5570" />
                     <ModelVisual3D Content="{Binding ShipModel}" />
                 </h:HelixViewport3D>
 
@@ -176,16 +342,16 @@
                         Margin="16" IsHitTestVisible="False">
                     <StackPanel MinWidth="170">
                         <Grid Margin="0,0,0,3">
-                            <TextBlock Text="MODÈLE" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
-                            <TextBlock Text="{Binding SelectedTemplate.Name}" Style="{StaticResource HudValueStyle}" />
+                            <TextBlock Text="LONGUEUR" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Length, StringFormat='{}{0:0.0} M'}" Style="{StaticResource HudValueStyle}" />
                         </Grid>
                         <Grid Margin="0,0,0,3">
-                            <TextBlock Text="SEED" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
-                            <TextBlock Text="{Binding Seed}" Style="{StaticResource HudValueStyle}" />
+                            <TextBlock Text="MAÎTRE-BAU" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Beam, StringFormat='{}{0:0.0} M'}" Style="{StaticResource HudValueStyle}" />
                         </Grid>
                         <Grid Margin="0,0,0,3">
-                            <TextBlock Text="PIÈCES" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
-                            <TextBlock Text="{Binding PartsSummary.Count}" Style="{StaticResource HudValueStyle}" />
+                            <TextBlock Text="CLASSE DE MASSE" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding MassClass}" Style="{StaticResource HudValueStyle}" />
                         </Grid>
                         <Border Height="1" Background="{StaticResource LineCyanDimBrush}" Margin="0,5" />
                         <Grid>
@@ -197,8 +363,7 @@
 
                 <!-- HUD: auto-rotate + reticle, top-right -->
                 <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16">
-                    <Border Style="{StaticResource HudPanelStyle}" Padding="10,7" HorizontalAlignment="Right"
-                            Margin="0,0,0,10">
+                    <Border Style="{StaticResource HudPanelStyle}" Padding="10,7" HorizontalAlignment="Right" Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="ORBITE AUTO" FontSize="10" Foreground="{StaticResource TextDimBrush}"
                                        VerticalAlignment="Center" Margin="0,0,8,0" />

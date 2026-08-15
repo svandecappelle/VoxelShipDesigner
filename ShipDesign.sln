@@ -9,10 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShipDesign.Core", "src\Ship
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShipDesign.App", "src\ShipDesign.App\ShipDesign.App.csproj", "{9D5A97EA-BC26-42CE-BDEA-C03828F37433}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{3D4800BF-B9E4-4C0B-8301-B5365196FD68}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaceholderPartGenerator", "tools\PlaceholderPartGenerator\PlaceholderPartGenerator.csproj", "{D9DE9115-4816-4427-95F3-12D774775A1C}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,14 +26,9 @@ Global
 		{9D5A97EA-BC26-42CE-BDEA-C03828F37433}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9D5A97EA-BC26-42CE-BDEA-C03828F37433}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9D5A97EA-BC26-42CE-BDEA-C03828F37433}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D9DE9115-4816-4427-95F3-12D774775A1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D9DE9115-4816-4427-95F3-12D774775A1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D9DE9115-4816-4427-95F3-12D774775A1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D9DE9115-4816-4427-95F3-12D774775A1C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BBCE65EA-50F8-4648-A218-BAA238136EA5} = {982F512C-7FB7-41CC-B213-B447370B0332}
 		{9D5A97EA-BC26-42CE-BDEA-C03828F37433} = {982F512C-7FB7-41CC-B213-B447370B0332}
-		{D9DE9115-4816-4427-95F3-12D774775A1C} = {3D4800BF-B9E4-4C0B-8301-B5365196FD68}
 	EndGlobalSection
 EndGlobal
