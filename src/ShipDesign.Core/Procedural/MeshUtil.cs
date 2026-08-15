@@ -89,4 +89,49 @@ internal static class MeshUtil
 
         return mesh;
     }
+
+    // ---- Flat-shaded helpers (each face gets its own normal, vertices duplicated per face) --
+    // used for the hard-surface hull, where creased panel edges are the desired look rather
+    // than smoothed-over ones.
+
+    public static void AddFlatTriangle(IPrimitiveBuilder prim, Vector3 a, Vector3 b, Vector3 c)
+    {
+        var normal = Vector3.Cross(b - a, c - a);
+        if (normal.LengthSquared() < 1e-12f)
+            return;
+        normal = Vector3.Normalize(normal);
+        prim.AddTriangle(
+            V(new VertexPositionNormal(a, normal)),
+            V(new VertexPositionNormal(b, normal)),
+            V(new VertexPositionNormal(c, normal)));
+    }
+
+    public static void AddFlatQuad(IPrimitiveBuilder prim, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+    {
+        AddFlatTriangle(prim, a, b, c);
+        AddFlatTriangle(prim, a, c, d);
+    }
+
+    /// <summary>Connects two same-size rings with a band of flat-shaded quads.</summary>
+    public static void AddFlatBand(IPrimitiveBuilder prim, IReadOnlyList<Vector3> ringA, IReadOnlyList<Vector3> ringB)
+    {
+        var n = ringA.Count;
+        for (var k = 0; k < n; k++)
+        {
+            var k1 = (k + 1) % n;
+            AddFlatQuad(prim, ringA[k], ringA[k1], ringB[k1], ringB[k]);
+        }
+    }
+
+    /// <summary>Fans a ring in to a single apex point with flat-shaded triangles (a faceted
+    /// nose/tail cap, as opposed to StitchFan's smoothly-shaded lathe cap).</summary>
+    public static void AddFlatFan(IPrimitiveBuilder prim, Vector3 apex, IReadOnlyList<Vector3> ring)
+    {
+        var n = ring.Count;
+        for (var k = 0; k < n; k++)
+        {
+            var k1 = (k + 1) % n;
+            AddFlatTriangle(prim, apex, ring[k], ring[k1]);
+        }
+    }
 }

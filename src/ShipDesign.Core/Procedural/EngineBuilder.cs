@@ -15,7 +15,8 @@ public static class EngineBuilder
     public static IReadOnlyList<(IMeshBuilder<MaterialBuilder> Mesh, Matrix4x4 Transform)> Build(ShipParameters p, HullClassPreset preset)
     {
         var tailZ = HullBuilder.ZAt(1f, p.Length) - 0.05f;
-        var tailR = HullBuilder.RadiusAt(0.96f, p, preset);
+        var (tailHalfWidth, tailHalfHeight) = HullBuilder.ProfileAt(0.96f, p, preset);
+        var tailR = (tailHalfWidth + tailHalfHeight) / 2f;
         var count = Math.Max(p.EngineCount, 1);
         var nozzleR = MathF.Max(tailR / (count > 1 ? 2.2f : 1.4f), 0.15f);
         var nozzleLen = p.Length * 0.14f;
@@ -33,7 +34,7 @@ public static class EngineBuilder
         var glowMesh = BuildGlowDisc(nozzleR * 0.6f, glowMaterial);
 
         var results = new List<(IMeshBuilder<MaterialBuilder>, Matrix4x4)>();
-        foreach (var (x, y) in EnginePositions(count, tailR))
+        foreach (var (x, y) in EnginePositions(count, p, preset))
         {
             results.Add((nozzleMesh, Matrix4x4.CreateTranslation(x, y, tailZ - nozzleLen / 2f)));
             results.Add((glowMesh, Matrix4x4.CreateTranslation(x, y, tailZ - nozzleLen - 0.02f)));
@@ -41,7 +42,9 @@ public static class EngineBuilder
         return results;
     }
 
-    private static IEnumerable<(float x, float y)> EnginePositions(int count, float tailR)
+    /// <summary>Engines sit inset from the actual (angular) hull boundary at their angle, so
+    /// they visually conform to a boxy/wedge hull instead of floating on a perfect circle.</summary>
+    private static IEnumerable<(float x, float y)> EnginePositions(int count, ShipParameters p, HullClassPreset preset)
     {
         if (count == 1)
         {
@@ -49,10 +52,10 @@ public static class EngineBuilder
             yield break;
         }
 
-        var radius = tailR * 0.55f;
         for (var i = 0; i < count; i++)
         {
             var angle = (float)i / count * MathF.PI * 2f + MathF.PI / 4f;
+            var radius = HullBuilder.RadiusAt(0.96f, angle, p, preset) * 0.55f;
             yield return (MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
         }
     }

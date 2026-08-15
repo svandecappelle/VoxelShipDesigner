@@ -29,7 +29,7 @@ public static class GreebleBuilder
         {
             var u = preset.NoseFraction + (float)random.NextDouble() * (preset.TailFraction - preset.NoseFraction);
             var angle = (float)random.NextDouble() * MathF.PI * 2f;
-            var r = HullBuilder.RadiusAt(u, p, preset);
+            var r = HullBuilder.RadiusAt(u, angle, p, preset);
             var z = HullBuilder.ZAt(u, p.Length);
             var w = 0.12f + (float)random.NextDouble() * 0.25f;
             var h = 0.05f + (float)random.NextDouble() * 0.12f;
@@ -51,7 +51,8 @@ public static class GreebleBuilder
         for (var d = 1; d < decks; d++)
         {
             var u = preset.NoseFraction + (float)d / decks * (preset.TailFraction - preset.NoseFraction);
-            var r = HullBuilder.RadiusAt(u, p, preset);
+            var (halfWidth, halfHeight) = HullBuilder.ProfileAt(u, p, preset);
+            var r = (halfWidth + halfHeight) / 2f;
             var z = HullBuilder.ZAt(u, p.Length);
             var ringMesh = MeshUtil.BuildTorus(r * 1.01f, MathF.Max(r * 0.02f, 0.01f), lineMaterial,
                 tubeSegments: 6, ringSegments: preset.RadialSegments);

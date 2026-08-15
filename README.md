@@ -5,18 +5,20 @@ procédurale** — coque, ailes, moteurs, cockpit et greebles sont construits pa
 d'une quinzaine de paramètres continus (longueur, largeur, effilement, angle de flèche,
 nombre de tuyères, couleurs de livrée...) — et les exportant en `.glb` pour Unity.
 
-L'UI reprend l'identité visuelle du mockup `vessel-forge.html` (thème HUD sombre cyan/ambre) ;
-l'algorithme de génération (profil de coque en révolution, ailes trapézoïdales, tuyères,
-cockpit, greebles dispersés par seed) est un port en C#/SharpGLTF de celui du mockup.
+L'UI reprend l'identité visuelle du mockup `vessel-forge.html` (thème HUD sombre cyan/ambre).
+La coque utilise volontairement un langage visuel **anguleux/hard-surface** (facettes nettes,
+sections en octogone chanfreiné, silhouettes façon Star Destroyer/X-wing) plutôt qu'une
+révolution lisse façon avion de chasse — voir "Pourquoi une coque anguleuse ?" plus bas.
 
 ## Structure
 
 - `src/ShipDesign.Core` — modèles et génération procédurale. Ne dépend pas de WPF (réutilisable
   telle quelle : tests, CLI, etc.).
   - `Procedural/ShipParameters.cs` — tous les paramètres du générateur.
-  - `Procedural/HullBuilder.cs` — coque : surface de révolution le long de l'axe Z, profil de
-    rayon param étrique (effilement du nez, bulbe médian, rétrécissement de la poupe), normales
-    lisses calculées analytiquement.
+  - `Procedural/HullBuilder.cs` — coque : séquence de sections en octogone chanfreiné (rectangle
+    aux coins coupés) le long de l'axe Z, largeur/hauteur interpolées linéairement entre les
+    points de contrôle du profil (voir `HullClassPreset`), normales plates par face (pas de
+    lissage — c'est voulu, pour un rendu "panneaux" plutôt qu'aérodynamique).
   - `Procedural/WingBuilder.cs` — paire d'ailes trapézoïdales extrudées ; l'aile n'est modélisée
     qu'une fois puis instanciée mirorée (échelle -1 en X) pour l'autre côté.
   - `Procedural/EngineBuilder.cs` — tuyères (cylindre effilé ou anneau) + disque émissif,
@@ -62,10 +64,30 @@ model.SaveGLB("output/fighter.glb");
 
 Le `.glb` généré s'importe directement dans Unity (glisser-déposer dans `Assets/`).
 
+## Pourquoi une coque anguleuse ?
+
+Une coque en révolution lisse (surface générée en tournant un profil continu autour de l'axe
+Z, normales lissées) donne visuellement un fuselage d'avion — un langage aérodynamique qui n'a
+pas de raison d'être dans le vide spatial, et qui ne correspond pas à l'esthétique de la SF
+"space opera" (Star Wars, Star Trek, Battlestar Galactica...). `HullBuilder` construit donc la
+coque comme une suite de sections en octogone chanfreiné dont la largeur/hauteur varient
+**linéairement** entre les points de contrôle de `HullClassPreset` (pas de courbe lissée : la
+pente change brutalement à chaque point, ce qui crée des arêtes visibles), avec des normales
+plates par face plutôt que lissées. Chaque classe de coque a un profil très différent pour
+rappeler un archétype reconnaissable :
+
+- **Chasseur** — nez en aiguille, proportions fines, chanfrein modéré.
+- **Corvette** — nez en aiguille, corps central plus long et plus plat.
+- **Cargo** — nez quasi-tronqué, corps très cubique (chanfrein minimal), long palier plat.
+- **Croiseur** — coque en coin plate façon Star Destroyer (largeur ≫ hauteur), long biseau
+  progressif jusqu'à une proue pointue plutôt qu'un nez court.
+
 ## Étendre le générateur
 
-- **Nouvelle classe de coque** : ajouter une entrée à `HullClassPreset.All` (fraction du nez,
-  bulbe, segments radiaux, ratio de poupe, préfixe de désignation) et à l'enum `HullClass`.
+- **Nouvelle classe de coque** : ajouter une entrée à `HullClassPreset.All` — une liste de
+  `HullProfilePoint(U, Largeur, Hauteur)` (fractions de `Beam`, U de 0=nez à 1=poupe),
+  `NoseFraction`/`TailFraction` (où les autres pièces considèrent le nez/la poupe "développés"),
+  `Chamfer` (0=arêtes vives, ~0.4=quasi-octogonal), et un préfixe de désignation.
 - **Nouveau style d'aile/moteur/cockpit** : ajouter une valeur à l'enum correspondant
   (`WingStyle`, `EngineStyle`, `CockpitStyle`) et le cas dans le builder associé ; l'UI
   (boutons segmentés) se met à jour automatiquement puisqu'elle itère sur `Enum.GetValues<T>()`.
@@ -74,6 +96,9 @@ Le `.glb` généré s'importe directement dans Unity (glisser-déposer dans `Ass
 
 ## Prochaines étapes
 
+- Les ailes (`WingBuilder`) sont restées un panneau trapézoïdal simple type aile d'avion ; un
+  prochain passage pourrait les rendre plus "structurelles" (moins de balayage aérodynamique,
+  panneaux plus épais/greeblés, pylônes de fixation visibles).
 - Undo / historique (actuellement, chaque changement régénère directement, pas d'annulation).
 - Sélecteur de couleur libre (actuellement une palette de 8 préréglages par canal) plutôt
   qu'un simple ensemble de pastilles.

@@ -9,7 +9,6 @@ namespace ShipDesign.Core.Procedural;
 /// ("flat canopy"), sat on top of the hull near the nose with a transparent tinted material.</summary>
 public static class CockpitBuilder
 {
-    private const float AttachU = 0.14f;
     private const int DomeWidthSegments = 16;
     private const int DomeHeightSteps = 8;
 
@@ -18,8 +17,12 @@ public static class CockpitBuilder
         if (p.CockpitStyle == CockpitStyle.None)
             return null;
 
-        var z = HullBuilder.ZAt(AttachU, p.Length);
-        var r = HullBuilder.RadiusAt(AttachU, p, preset);
+        // Sit within the nose taper (scaled to how long that taper is for this hull class)
+        // rather than a fixed U, so it lands somewhere already "developed" instead of right at
+        // the tip for long-nosed classes like the wedge cruiser.
+        var attachU = preset.NoseFraction * 0.6f;
+        var z = HullBuilder.ZAt(attachU, p.Length);
+        var r = HullBuilder.RadiusAt(attachU, MathF.PI / 2f, p, preset); // theta=pi/2: the hull's top
         var size = p.CockpitSize;
 
         var material = new MaterialBuilder("cockpit")

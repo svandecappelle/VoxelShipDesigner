@@ -28,7 +28,7 @@ public static class WingBuilder
             return Array.Empty<(IMeshBuilder<MaterialBuilder>, Matrix4x4)>();
 
         var attachZ = HullBuilder.ZAt(cfg.AttachU, p.Length);
-        var rootR = HullBuilder.RadiusAt(cfg.AttachU, p, preset);
+        var rootR = HullBuilder.RadiusAt(cfg.AttachU, 0f, p, preset); // theta=0: the hull's side
         var span = MathF.Max(p.WingSpan, 0.1f);
         var sweep = p.WingSweepDegrees * MathF.PI / 180f;
         var chordRoot = cfg.ChordRootFactor * (p.Length * 0.18f);
