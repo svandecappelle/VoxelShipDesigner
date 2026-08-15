@@ -1,40 +1,19 @@
-using System.Numerics;
 using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
 
 namespace ShipDesign.Core.Procedural;
 
-/// <summary>Assembles hull + wings + engines + cockpit + greebles into a single glTF model,
-/// the one entry point the UI layer needs for the procedural generator.</summary>
+/// <summary>Grows a voxel ship and converts it to a single glTF model -- the one entry point
+/// the UI layer needs for the procedural generator.</summary>
 public static class ProceduralShipBuilder
 {
     public static ModelRoot Build(ShipParameters p)
     {
         var preset = HullClassPreset.All[p.HullClass];
+        var grid = VoxelShipGrower.Grow(p, preset, out _);
+
         var scene = new SceneBuilder();
-
-        scene.AddRigidMesh(HullBuilder.Build(p, preset), Matrix4x4.Identity);
-
-        foreach (var (mesh, transform) in WingBuilder.Build(p, preset))
-            scene.AddRigidMesh(mesh, transform);
-
-        foreach (var (mesh, transform) in EngineBuilder.Build(p, preset))
-            scene.AddRigidMesh(mesh, transform);
-
-        var cockpit = CockpitBuilder.Build(p, preset);
-        if (cockpit is not null)
-            scene.AddRigidMesh(cockpit.Value.Mesh, cockpit.Value.Transform);
-
-        var superstructure = SuperstructureBuilder.Build(p, preset);
-        if (superstructure is not null)
-            scene.AddRigidMesh(superstructure.Value.Mesh, superstructure.Value.Transform);
-
-        foreach (var (mesh, transform) in NacelleBuilder.Build(p, preset))
-            scene.AddRigidMesh(mesh, transform);
-
-        foreach (var (mesh, transform) in GreebleBuilder.Build(p, preset))
-            scene.AddRigidMesh(mesh, transform);
-
+        VoxelMesher.AddToScene(scene, grid, VoxelShipGrower.VoxelSize, p);
         return scene.ToGltf2();
     }
 
