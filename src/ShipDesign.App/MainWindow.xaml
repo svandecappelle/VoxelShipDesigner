@@ -195,12 +195,12 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Superstructure -->
+                        <!-- Structures secondaires -->
                         <Border Style="{StaticResource PanelBorderStyle}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                     <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="SUPERSTRUCTURE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                    <TextBlock Text="STRUCTURES SECONDAIRES" Style="{StaticResource PanelTitleStyle}" Margin="0" />
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -209,10 +209,21 @@
                                 </StackPanel>
 
                                 <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Taille" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Text="Taille tourelle" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SuperstructureSize, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="2" Value="{Binding SuperstructureSize}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="2" Value="{Binding SuperstructureSize}" Margin="0,0,0,12" />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Nacelles}" Margin="0,0,8,0" />
+                                    <TextBlock Text="Nacelles sur pylônes" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Taille nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSize, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleSize}" />
                             </StackPanel>
                         </Border>
 

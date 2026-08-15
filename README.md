@@ -1,10 +1,10 @@
 # ShipDesign
 
 Application desktop (.NET 7 / WPF) générant des vaisseaux spatiaux **entièrement de manière
-procédurale** — coque, ailes, moteurs, cockpit, tourelle de commandement, tourelles d'armement
-et greebles sont construits par code à partir d'une vingtaine de paramètres continus (longueur,
-largeur, effilement, angle de flèche, nombre de tuyères/tourelles, couleurs de livrée...) — et
-les exportant en `.glb` pour Unity.
+procédurale** — coque principale, nacelles secondaires sur pylônes, ailes, moteurs, cockpit,
+tourelle de commandement, tourelles d'armement et greebles sont construits par code à partir
+d'une vingtaine de paramètres continus (longueur, largeur, effilement, angle de flèche, nombre
+de tuyères/tourelles, couleurs de livrée...) — et les exportant en `.glb` pour Unity.
 
 L'UI reprend l'identité visuelle du mockup `vessel-forge.html` (thème HUD sombre cyan/ambre).
 La coque utilise volontairement un langage visuel **anguleux/hard-surface** (facettes nettes,
@@ -19,7 +19,11 @@ révolution lisse façon avion de chasse — voir "Pourquoi une coque anguleuse 
   - `Procedural/HullBuilder.cs` — coque : séquence de sections en octogone chanfreiné (rectangle
     aux coins coupés) le long de l'axe Z, largeur/hauteur interpolées linéairement entre les
     points de contrôle du profil (voir `HullClassPreset`), normales plates par face (pas de
-    lissage — c'est voulu, pour un rendu "panneaux" plutôt qu'aérodynamique).
+    lissage — c'est voulu, pour un rendu "panneaux" plutôt qu'aérodynamique). `BuildVolume` est
+    la forme générique (profil/longueur/largeur en paramètres) réutilisée par `NacelleBuilder`.
+  - `Procedural/NacelleBuilder.cs` — paire de nacelles (mini-coques tubulaires, même algorithme
+    que la coque principale mais un profil différent) montées sur pylônes de part et d'autre de
+    la coque, parallèles à son axe — la coque cesse d'être un volume unique.
   - `Procedural/WingBuilder.cs` — paire d'ailes trapézoïdales extrudées ; l'aile n'est modélisée
     qu'une fois puis instanciée mirorée (échelle -1 en X) pour l'autre côté.
   - `Procedural/EngineBuilder.cs` — tuyères (cylindre effilé ou anneau) + disque émissif,
@@ -43,9 +47,9 @@ révolution lisse façon avion de chasse — voir "Pourquoi une coque anguleuse 
     cyan/ambre, panneaux, sélecteurs en boutons segmentés, slider à curseur ambre, overlay de
     stats et réticule animé dans le viewport, toggle d'orbite automatique de la caméra).
   - Tous les paramètres sont modifiables en direct (chaque changement régénère le vaisseau) :
-    classe de coque, géométrie, ailes, propulsion, cockpit, superstructure (tourelle de
-    commandement), détails de surface (greebles, tourelles, seed inclus), livrée (4 couleurs,
-    palette de préréglages). Bouton "Vaisseau aléatoire" et export `.glb`.
+    classe de coque, géométrie, ailes, propulsion, cockpit, structures secondaires (tourelle de
+    commandement, nacelles), détails de surface (greebles, tourelles, seed inclus), livrée
+    (4 couleurs, palette de préréglages). Bouton "Vaisseau aléatoire" et export `.glb`.
 
 ## Lancer l'application
 
@@ -110,6 +114,20 @@ de la vraie complexité *structurelle*, pas juste une silhouette différente :
 - **Les ailes** sont plus épaisses (0.25+ au lieu de 0.15, une plaque structurelle plutôt qu'un
   profil aérodynamique fin) et portent maintenant deux blocs de panneaux en relief.
 
+## Pourquoi des nacelles sur pylônes ?
+
+Même avec une tourelle de commandement, la coque restait un **volume unique** — tout est
+rattaché à un seul fuselage central. `NacelleBuilder` casse ça pour de vrai : une paire de
+petites coques tubulaires (même algorithme de révolution en octogone chanfreiné que la coque
+principale, via `HullBuilder.BuildVolume`, mais avec leur propre profil, plus simple) montées
+sur des pylônes de part et d'autre de la coque, parallèles à son axe — la référence directe
+étant les nacelles de propulsion de Star Trek, ou les pods de vol de Battlestar Galactica.
+Contrairement à la tourelle (posée directement sur la coque), les nacelles sont **détachées**
+de la coque principale et reliées uniquement par une structure fine (le pylône) : c'est ce qui
+fait qu'un vaisseau ne se lit plus comme "un fuselage avec des trucs dessus" mais comme
+"plusieurs volumes distincts assemblés". Nouveaux paramètres : `Nacelles` (bascule) et
+`NacelleSize`.
+
 ## Étendre le générateur
 
 - **Nouvelle classe de coque** : ajouter une entrée à `HullClassPreset.All` — une liste de
@@ -124,9 +142,9 @@ de la vraie complexité *structurelle*, pas juste une silhouette différente :
 
 ## Prochaines étapes
 
-- Segmentation de la coque elle-même en plusieurs volumes distincts (façon soucoupe + nacelles
-  sur pylônes de Star Trek), plutôt qu'une seule coque continue avec une superstructure greffée
-  dessus.
+- Une vraie section "soucoupe" séparée (comme la coque principale de Star Trek), en plus des
+  nacelles déjà détachées — actuellement la coque principale reste un seul volume, seules les
+  nacelles sont de vrais volumes secondaires.
 - Plus de variété de greebles (antennes, dishes, panneaux de radiateur) au lieu du seul type
   "boîte" actuel.
 - Undo / historique (actuellement, chaque changement régénère directement, pas d'annulation).

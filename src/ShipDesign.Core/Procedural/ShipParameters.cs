@@ -28,6 +28,9 @@ public sealed class ShipParameters
     public bool Superstructure { get; set; } = true;
     public float SuperstructureSize { get; set; } = 1f;
 
+    public bool Nacelles { get; set; } = true;
+    public float NacelleSize { get; set; } = 1f;
+
     public ShipColor HullColor { get; set; } = ShipColor.HullDefault;
     public ShipColor AccentColor { get; set; } = ShipColor.AccentDefault;
     public ShipColor EngineGlowColor { get; set; } = ShipColor.EngineGlowDefault;

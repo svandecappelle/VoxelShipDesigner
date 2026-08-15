@@ -29,6 +29,9 @@ public static class ProceduralShipBuilder
         if (superstructure is not null)
             scene.AddRigidMesh(superstructure.Value.Mesh, superstructure.Value.Transform);
 
+        foreach (var (mesh, transform) in NacelleBuilder.Build(p, preset))
+            scene.AddRigidMesh(mesh, transform);
+
         foreach (var (mesh, transform) in GreebleBuilder.Build(p, preset))
             scene.AddRigidMesh(mesh, transform);
 
