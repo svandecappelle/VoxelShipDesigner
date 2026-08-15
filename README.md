@@ -38,7 +38,9 @@ pour pouvoir tester le remplacement de pièce dans l'UI).
 ## Ajouter une pièce
 
 1. Modéliser la pièce dans Blender. Les points d'ancrage sont des *empties* nommés
-   `socket_<nom>` (ex: `socket_wing_L`, `socket_engine_R`).
+   `socket_<nom>` (ex: `socket_wing_L`, `socket_engine_R`). Un socket dont le nom se termine
+   par `_R` est automatiquement mirroré sur X par l'assembleur : modélise la pièce (aile,
+   arme...) une seule fois pour le côté `_L`, elle sera flippée pour son homologue `_R`.
 2. Exporter en glTF (`.glb`) dans `Assets/Parts/`.
 3. (Optionnel) Ajouter un fichier `.json` du même nom :
 
@@ -76,6 +78,5 @@ Le `.glb` généré s'importe directement dans Unity (glisser-déposer dans `Ass
 ## Prochaines étapes
 
 - Remplacer les pièces placeholder par de vrais assets modélisés dans Blender.
-- Mirroring des pièces symétriques (aile gauche/droite) au niveau des sockets.
 - Templates comme données (JSON) plutôt que codés en dur dans `ShipTemplateCatalog`.
 - Undo / historique d'édition (actuellement, seul "Régénérer" repart de zéro).

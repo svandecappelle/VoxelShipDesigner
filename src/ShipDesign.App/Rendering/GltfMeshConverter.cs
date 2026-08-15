@@ -41,6 +41,9 @@ public static class GltfMeshConverter
                 var material = new DiffuseMaterial(new SolidColorBrush(Colors.LightGray));
                 group.Children.Add(new GeometryModel3D(geometry, material)
                 {
+                    // Mirrored parts (negative-determinant transform, see Socket.Mirror) flip
+                    // triangle winding, which would otherwise cull the now-inverted front face.
+                    BackMaterial = material,
                     Transform = ToTransform(node.WorldMatrix * extra)
                 });
             }

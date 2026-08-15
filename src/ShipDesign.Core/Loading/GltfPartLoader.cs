@@ -46,12 +46,14 @@ public static class GltfPartLoader
             if (node.Name is null || !node.Name.StartsWith(SocketPrefix, StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            var name = node.Name[SocketPrefix.Length..];
             var decomposed = node.LocalTransform.GetDecomposed();
             sockets.Add(new Socket
             {
-                Name = node.Name[SocketPrefix.Length..],
+                Name = name,
                 LocalPosition = decomposed.Translation,
-                LocalRotation = decomposed.Rotation
+                LocalRotation = decomposed.Rotation,
+                Mirror = name.EndsWith("_R", StringComparison.OrdinalIgnoreCase)
             });
         }
         return sockets;

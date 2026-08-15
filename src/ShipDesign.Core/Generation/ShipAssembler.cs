@@ -39,6 +39,9 @@ public sealed class ShipAssembler
                 var chosen = candidates[random.Next(candidates.Count)];
                 var transform = Matrix4x4.CreateFromQuaternion(socket.LocalRotation)
                     * Matrix4x4.CreateTranslation(socket.LocalPosition);
+                if (socket.Mirror)
+                    transform = Matrix4x4.CreateScale(-1f, 1f, 1f) * transform;
+
                 placed.Add(new PlacedPart { Part = chosen, WorldTransform = transform });
             }
         }

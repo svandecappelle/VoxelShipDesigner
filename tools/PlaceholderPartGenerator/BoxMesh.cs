@@ -6,13 +6,19 @@ using SharpGLTF.Materials;
 namespace PlaceholderPartGenerator;
 
 /// <summary>
-/// Builds a simple axis-aligned box mesh, flat-shaded, centered on the local origin.
-/// Good enough for greybox test parts; real parts will come from Blender later.
+/// Builds a simple axis-aligned box mesh, flat-shaded. Good enough for greybox test parts;
+/// real parts will come from Blender later.
 /// </summary>
 public static class BoxMesh
 {
+    /// <param name="center">
+    /// Box center relative to the part's local origin. Use Vector3.Zero for parts meant to sit
+    /// centered on their socket (hulls, engines); offset it (e.g. size.X/2, 0, 0) for parts whose
+    /// local origin should be the attachment root instead (wings), so mirroring at "_R" sockets
+    /// (see Socket.Mirror) flips them to the correct outward side instead of through the hull.
+    /// </param>
     public static MeshBuilder<MaterialBuilder, VertexPosition, VertexEmpty, VertexEmpty> Create(
-        string name, Vector3 size, Vector4 color)
+        string name, Vector3 size, Vector4 color, Vector3 center = default)
     {
         var material = new MaterialBuilder(name + "_mat").WithBaseColor(color).WithDoubleSide(false);
         var mesh = new MeshBuilder<MaterialBuilder, VertexPosition, VertexEmpty, VertexEmpty>(name);
@@ -21,10 +27,10 @@ public static class BoxMesh
         var h = size / 2f;
         var p = new[]
         {
-            new Vector3(-h.X, -h.Y, -h.Z), new Vector3(h.X, -h.Y, -h.Z),
-            new Vector3(h.X, h.Y, -h.Z), new Vector3(-h.X, h.Y, -h.Z),
-            new Vector3(-h.X, -h.Y, h.Z), new Vector3(h.X, -h.Y, h.Z),
-            new Vector3(h.X, h.Y, h.Z), new Vector3(-h.X, h.Y, h.Z),
+            center + new Vector3(-h.X, -h.Y, -h.Z), center + new Vector3(h.X, -h.Y, -h.Z),
+            center + new Vector3(h.X, h.Y, -h.Z), center + new Vector3(-h.X, h.Y, -h.Z),
+            center + new Vector3(-h.X, -h.Y, h.Z), center + new Vector3(h.X, -h.Y, h.Z),
+            center + new Vector3(h.X, h.Y, h.Z), center + new Vector3(-h.X, h.Y, h.Z),
         };
 
         void Quad(int a, int b, int c, int d) => prim.AddQuadrangle(

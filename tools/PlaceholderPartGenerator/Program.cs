@@ -29,15 +29,18 @@ ExportPart(
         ("engine_C", new Vector3(0f, 0f, -1.3f)),
     });
 
+// Wings are authored for the "_L" socket: root at the local origin, mesh extending in -X
+// (outward, away from the hull centerline). ShipAssembler mirrors them on X when placed at
+// a "_R" socket (see Socket.Mirror), so the same part points the right way on both sides.
 ExportPart(
     outputDir, "wing_basic_01",
-    BoxMesh.Create("wing", new Vector3(1.4f, 0.08f, 0.6f), new Vector4(0.35f, 0.4f, 0.45f, 1f)),
+    BoxMesh.Create("wing", new Vector3(1.4f, 0.08f, 0.6f), new Vector4(0.35f, 0.4f, 0.45f, 1f), center: new Vector3(-0.7f, 0f, 0f)),
     category: "Wing", sizeClass: "Medium", tags: new[] { "fighter" },
     sockets: Array.Empty<(string, Vector3)>());
 
 ExportPart(
     outputDir, "wing_swept_02",
-    BoxMesh.Create("wing", new Vector3(1.8f, 0.06f, 0.4f), new Vector4(0.5f, 0.3f, 0.3f, 1f)),
+    BoxMesh.Create("wing", new Vector3(1.8f, 0.06f, 0.4f), new Vector4(0.5f, 0.3f, 0.3f, 1f), center: new Vector3(-0.9f, 0f, -0.3f)),
     category: "Wing", sizeClass: "Medium", tags: new[] { "fighter" },
     sockets: Array.Empty<(string, Vector3)>());
 
