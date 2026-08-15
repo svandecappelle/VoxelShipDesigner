@@ -48,13 +48,22 @@
             <Button Content="Exporter..." Command="{Binding ExportCommand}" Padding="8,4" Margin="0,0,0,16" />
 
             <TextBlock Text="Pièces assemblées" FontWeight="Bold" Margin="0,0,0,4" />
-            <ItemsControl ItemsSource="{Binding PartsSummary}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" FontSize="11" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <ListBox ItemsSource="{Binding PartsSummary}"
+                     SelectedItem="{Binding SelectedPartEntry}"
+                     DisplayMemberPath="Text"
+                     Height="140"
+                     FontSize="11"
+                     Margin="0,0,0,8" />
+
+            <Button Content="Remplacer la pièce" Command="{Binding ReplacePartCommand}" Padding="8,4" Margin="0,0,0,8" />
+
+            <TextBlock Margin="0,0,0,4">
+                <Run Text="Échelle : " FontWeight="Bold" />
+                <Run Text="{Binding SelectedPartScale, StringFormat='x{0:0.00}', Mode=OneWay}" />
+            </TextBlock>
+            <Slider Minimum="0.5" Maximum="2" Value="{Binding SelectedPartScale}"
+                    TickFrequency="0.1" SmallChange="0.05" LargeChange="0.25"
+                    IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" />
         </StackPanel>
 
         <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="8" TextWrapping="Wrap" Text="{Binding StatusText}" />

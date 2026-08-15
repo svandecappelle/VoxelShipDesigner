@@ -36,9 +36,21 @@ ExportPart(
     sockets: Array.Empty<(string, Vector3)>());
 
 ExportPart(
+    outputDir, "wing_swept_02",
+    BoxMesh.Create("wing", new Vector3(1.8f, 0.06f, 0.4f), new Vector4(0.5f, 0.3f, 0.3f, 1f)),
+    category: "Wing", sizeClass: "Medium", tags: new[] { "fighter" },
+    sockets: Array.Empty<(string, Vector3)>());
+
+ExportPart(
     outputDir, "engine_basic_01",
     BoxMesh.Create("engine", new Vector3(0.35f, 0.35f, 0.9f), new Vector4(0.2f, 0.2f, 0.22f, 1f)),
     category: "Engine", sizeClass: "Medium", tags: new[] { "fighter" },
+    sockets: Array.Empty<(string, Vector3)>());
+
+ExportPart(
+    outputDir, "engine_heavy_02",
+    BoxMesh.Create("engine", new Vector3(0.5f, 0.5f, 1.2f), new Vector4(0.25f, 0.15f, 0.15f, 1f)),
+    category: "Engine", sizeClass: "Large", tags: new[] { "fighter" },
     sockets: Array.Empty<(string, Vector3)>());
 
 Console.WriteLine($"Pieces generees dans {outputDir}");
