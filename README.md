@@ -8,14 +8,27 @@ modulaires (kitbashing procédural) et les exporter en `.glb` pour Unity.
 - `src/ShipDesign.Core` — modèles, chargement des pièces, moteur d'assemblage, export glTF.
   Ne dépend pas de WPF : réutilisable telle quelle (tests, CLI, etc.).
 - `src/ShipDesign.App` — interface WPF (viewport HelixToolkit) qui utilise `ShipDesign.Core`.
+  Contient un template de vaisseau ("Fighter") câblé en dur, avec boutons Régénérer
+  (nouveau seed) et Exporter (`.glb` via une boîte de dialogue).
 - `Assets/Parts` — bibliothèque de pièces. Chaque pièce est un fichier `.glb`/`.gltf`, avec
   un fichier `.json` optionnel du même nom pour ses métadonnées (catégorie, taille, tags).
+- `tools/PlaceholderPartGenerator` — génère des pièces "greybox" (boîtes) directement en C#,
+  pour tester toute la chaîne sans dépendre de Blender. À terme, ces pièces seront remplacées
+  par de vrais assets modélisés à la main.
 
 ## Lancer l'application
 
 ```
 dotnet run --project src/ShipDesign.App
 ```
+
+## Régénérer les pièces de test
+
+```
+dotnet run --project tools/PlaceholderPartGenerator
+```
+
+Écrit (ré)écrit `hull_fighter_01`, `wing_basic_01` et `engine_basic_01` dans `Assets/Parts/`.
 
 ## Ajouter une pièce
 
@@ -57,6 +70,7 @@ Le `.glb` généré s'importe directement dans Unity (glisser-déposer dans `Ass
 
 ## Prochaines étapes
 
-- Ajouter les premières pièces réelles (coque + ailes + moteur) dans `Assets/Parts`.
-- UI : liste de templates de vaisseaux + bouton "régénérer" (nouveau seed) + bouton "exporter".
+- Remplacer les pièces placeholder par de vrais assets modélisés dans Blender.
+- UI : liste déroulante de templates de vaisseaux (au lieu du seul "Fighter" en dur).
 - Édition manuelle : remplacer une pièce choisie, ajuster son échelle.
+- Mirroring des pièces symétriques (aile gauche/droite) au niveau des sockets.

@@ -10,9 +10,10 @@ namespace ShipDesign.App.Rendering;
 /// </summary>
 public static class GltfMeshConverter
 {
-    public static Model3DGroup ToModel3DGroup(Part part)
+    public static Model3DGroup ToModel3DGroup(Part part, System.Numerics.Matrix4x4? extraTransform = null)
     {
         var group = new Model3DGroup();
+        var extra = extraTransform ?? System.Numerics.Matrix4x4.Identity;
 
         foreach (var node in part.Model.LogicalNodes)
         {
@@ -40,7 +41,7 @@ public static class GltfMeshConverter
                 var material = new DiffuseMaterial(new SolidColorBrush(Colors.LightGray));
                 group.Children.Add(new GeometryModel3D(geometry, material)
                 {
-                    Transform = ToTransform(node.WorldMatrix)
+                    Transform = ToTransform(node.WorldMatrix * extra)
                 });
             }
         }

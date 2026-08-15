@@ -23,7 +23,18 @@ namespace ShipDesign.App
         public MainWindow()
         {
             InitializeComponent();
-            DataContext = new ViewModels.MainViewModel();
+
+            var viewModel = new ViewModels.MainViewModel();
+            DataContext = viewModel;
+            viewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ViewModels.MainViewModel.ShipModel))
+                    Dispatcher.BeginInvoke(new Action(() => Viewport.ZoomExtents()));
+            };
+
+            // The initial ship is assembled synchronously in the view model's constructor,
+            // i.e. before the PropertyChanged subscription above can catch it — so zoom once more here.
+            Loaded += (_, _) => Viewport.ZoomExtents();
         }
     }
 }
