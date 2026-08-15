@@ -15,8 +15,9 @@ public sealed class HullClassPreset
     /// (low) vs. boxy/round (high) the cross-section reads.</summary>
     public required float HeightRatio { get; init; }
 
-    /// <summary>Random-walk step noise amplitude, in voxels. 0 = a smooth, repeatable
-    /// envelope; higher = a rougher, more distinctive silhouette per seed.</summary>
+    /// <summary>Random-walk step noise amplitude, relative to the hull's half-width (so a class
+    /// stays equally rough at any voxel resolution). 0 = a smooth, repeatable envelope; higher =
+    /// a rougher, more distinctive silhouette per seed.</summary>
     public required float Jaggedness { get; init; }
 
     public required string Prefix { get; init; }
