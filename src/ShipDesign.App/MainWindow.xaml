@@ -1,4 +1,4 @@
-﻿<Window x:Class="ShipDesign.App.MainWindow"
+<Window x:Class="ShipDesign.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -6,66 +6,239 @@
         xmlns:h="http://helix-toolkit.org/wpf"
         xmlns:local="clr-namespace:ShipDesign.App"
         mc:Ignorable="d"
-        Title="ShipDesign" Height="600" Width="900">
+        Title="ShipDesign" Height="680" Width="1100"
+        Background="{StaticResource BgDeepBrush}"
+        FontFamily="{StaticResource MonoFont}"
+        Foreground="{StaticResource TextPrimaryBrush}">
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="230" />
-        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <h:HelixViewport3D x:Name="Viewport" Grid.Row="0" Grid.Column="0" ZoomExtentsWhenLoaded="True">
-            <h:HelixViewport3D.DefaultCamera>
-                <PerspectiveCamera Position="5,5,5" LookDirection="-5,-5,-5" UpDirection="0,1,0" />
-            </h:HelixViewport3D.DefaultCamera>
-            <h:SunLight />
-            <h:GridLinesVisual3D Width="8" Length="8" MinorDistance="1" MajorDistance="1" />
-            <ModelVisual3D Content="{Binding ShipModel}" />
-        </h:HelixViewport3D>
-
-        <StackPanel Grid.Row="0" Grid.Column="1" Margin="8">
-            <TextBlock Text="Modèle" FontWeight="Bold" Margin="0,0,0,4" />
-            <ComboBox ItemsSource="{Binding AvailableTemplates}"
-                      SelectedItem="{Binding SelectedTemplate}"
-                      DisplayMemberPath="Name"
-                      Margin="0,0,0,8" />
-
-            <Button Content="Régénérer" Command="{Binding RegenerateCommand}" Padding="8,4" Margin="0,0,0,8" />
-
-            <TextBlock Text="Seed" FontWeight="Bold" Margin="0,0,0,4" />
-            <Grid Margin="0,0,0,8">
+        <!-- ============ Topbar ============ -->
+        <Border Grid.Row="0" Background="{StaticResource BgPanelBrush}"
+                BorderBrush="{StaticResource LineCyanDimBrush}" BorderThickness="0,0,0,1"
+                Padding="20,0" Height="58">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0" Text="{Binding SeedInput, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center" />
-                <Button Grid.Column="1" Content="Aller" Command="{Binding GenerateWithSeedCommand}" Padding="8,2" Margin="4,0,0,0" />
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Grid Width="30" Height="30" Margin="0,0,12,0">
+                        <Ellipse Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" Opacity="0.5"
+                                 StrokeDashArray="2 3" />
+                        <Polygon Points="15,4 20,20 15,17 10,20" Fill="{StaticResource AccentAmberBrush}" />
+                    </Grid>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="SHIPDESIGN" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold"
+                                   FontSize="19" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="ASSEMBLAGE MODULAIRE DE VAISSEAUX — EXPORT UNITY"
+                                   FontFamily="{StaticResource MonoFont}" FontSize="9.5"
+                                   Foreground="{StaticResource TextDimBrush}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Column="1" VerticalAlignment="Center" Background="{StaticResource AccentAmberDimBrush}"
+                        BorderBrush="{StaticResource AccentAmberBrush}" BorderThickness="1" CornerRadius="2"
+                        Padding="12,6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="DÉSIGNATION" FontSize="9.5" Foreground="{StaticResource TextDimBrush}"
+                                   Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Designation}" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentAmberBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
             </Grid>
+        </Border>
 
-            <Button Content="Exporter..." Command="{Binding ExportCommand}" Padding="8,4" Margin="0,0,0,16" />
+        <!-- ============ Main content ============ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
 
-            <TextBlock Text="Pièces assemblées" FontWeight="Bold" Margin="0,0,0,4" />
-            <ListBox ItemsSource="{Binding PartsSummary}"
-                     SelectedItem="{Binding SelectedPartEntry}"
-                     DisplayMemberPath="Text"
-                     Height="140"
-                     FontSize="11"
-                     Margin="0,0,0,8" />
+            <!-- === Sidebar === -->
+            <Border Grid.Column="0" Background="{StaticResource BgPanelBrush}"
+                    BorderBrush="{StaticResource LineCyanDimBrush}" BorderThickness="0,0,1,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16">
 
-            <Button Content="Remplacer la pièce" Command="{Binding ReplacePartCommand}" Padding="8,4" Margin="0,0,0,8" />
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
+                                               Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="MODÈLE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}"
+                                         ItemsSource="{Binding AvailableTemplates}"
+                                         SelectedItem="{Binding SelectedTemplate}"
+                                         DisplayMemberPath="Name" />
+                            </StackPanel>
+                        </Border>
 
-            <TextBlock Margin="0,0,0,4">
-                <Run Text="Échelle : " FontWeight="Bold" />
-                <Run Text="{Binding SelectedPartScale, StringFormat='x{0:0.00}', Mode=OneWay}" />
-            </TextBlock>
-            <Slider Minimum="0.5" Maximum="2" Value="{Binding SelectedPartScale}"
-                    TickFrequency="0.1" SmallChange="0.05" LargeChange="0.25"
-                    IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" />
-        </StackPanel>
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
+                                               Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="GRAINE (SEED)" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+                                <TextBox Style="{StaticResource ThemedTextBoxStyle}"
+                                         Text="{Binding SeedInput, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="APPLIQUER" Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding GenerateWithSeedCommand}" Margin="0,0,6,0" />
+                                    <Button Content="↻ REJOUER" Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding RegenerateCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
-        <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Margin="8" TextWrapping="Wrap" Text="{Binding StatusText}" />
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
+                                               Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="PIÈCES ASSEMBLÉES" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+                                <Border Background="{StaticResource BgDeepBrush}" BorderBrush="{StaticResource LineCyanDimBrush}"
+                                        BorderThickness="1" CornerRadius="2">
+                                    <ListBox Style="{StaticResource PartsListBoxStyle}" Height="150"
+                                             ItemsSource="{Binding PartsSummary}"
+                                             SelectedItem="{Binding SelectedPartEntry}"
+                                             DisplayMemberPath="Text" />
+                                </Border>
+                                <Button Content="REMPLACER LA PIÈCE" Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding ReplacePartCommand}" Margin="0,10,0,12" />
+
+                                <Grid Margin="0,0,0,6">
+                                    <TextBlock Text="ÉCHELLE" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right"
+                                               Text="{Binding SelectedPartScale, StringFormat='x{0:0.00}', Mode=OneWay}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="2"
+                                        Value="{Binding SelectedPartScale}" SmallChange="0.05" LargeChange="0.25"
+                                        TickFrequency="0.1" IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource PanelBorderStyle}" Margin="0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}"
+                                               Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="EXPORT" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+                                <Button Content="EXPORTER EN .GLB" Style="{StaticResource PrimaryButtonStyle}"
+                                        Command="{Binding ExportCommand}" />
+                                <TextBlock Margin="0,9,0,0" TextWrapping="Wrap" FontSize="10" LineHeight="16"
+                                           Foreground="{StaticResource TextDimBrush}">
+                                    Le fichier .glb s'importe directement dans Unity : glissez-le dans votre dossier
+                                    <Run Foreground="{StaticResource TextPrimaryBrush}">Assets</Run>.
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- === Viewport === -->
+            <Grid Grid.Column="1">
+                <Border>
+                    <Border.Background>
+                        <RadialGradientBrush GradientOrigin="0.5,0.4" Center="0.5,0.4" RadiusX="0.75" RadiusY="0.75">
+                            <GradientStop Color="#0E2C44" Offset="0" />
+                            <GradientStop Color="#081826" Offset="0.7" />
+                        </RadialGradientBrush>
+                    </Border.Background>
+                </Border>
+
+                <h:HelixViewport3D x:Name="Viewport" Background="Transparent" ShowCoordinateSystem="False">
+                    <h:HelixViewport3D.DefaultCamera>
+                        <PerspectiveCamera Position="5,5,5" LookDirection="-5,-5,-5" UpDirection="0,1,0" />
+                    </h:HelixViewport3D.DefaultCamera>
+                    <h:SunLight />
+                    <h:GridLinesVisual3D Width="8" Length="8" MinorDistance="1" MajorDistance="1"
+                                          Thickness="0.01" Fill="#2A5570" />
+                    <ModelVisual3D Content="{Binding ShipModel}" />
+                </h:HelixViewport3D>
+
+                <!-- HUD: stats, bottom-left -->
+                <Border Style="{StaticResource HudPanelStyle}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                        Margin="16" IsHitTestVisible="False">
+                    <StackPanel MinWidth="170">
+                        <Grid Margin="0,0,0,3">
+                            <TextBlock Text="MODÈLE" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding SelectedTemplate.Name}" Style="{StaticResource HudValueStyle}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,3">
+                            <TextBlock Text="SEED" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Seed}" Style="{StaticResource HudValueStyle}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,3">
+                            <TextBlock Text="PIÈCES" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding PartsSummary.Count}" Style="{StaticResource HudValueStyle}" />
+                        </Grid>
+                        <Border Height="1" Background="{StaticResource LineCyanDimBrush}" Margin="0,5" />
+                        <Grid>
+                            <TextBlock Text="TRIANGLES" Style="{StaticResource HudLabelStyle}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding TriangleCount}" Style="{StaticResource HudValueStyle}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- HUD: auto-rotate + reticle, top-right -->
+                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16">
+                    <Border Style="{StaticResource HudPanelStyle}" Padding="10,7" HorizontalAlignment="Right"
+                            Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ORBITE AUTO" FontSize="10" Foreground="{StaticResource TextDimBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <CheckBox x:Name="AutoRotateToggle" Style="{StaticResource ToggleSwitchStyle}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Width="64" Height="64" Opacity="0.4" HorizontalAlignment="Right" IsHitTestVisible="False"
+                          RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <RotateTransform x:Name="ReticleRotation" Angle="0" />
+                        </Grid.RenderTransform>
+                        <Grid.Triggers>
+                            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ReticleRotation"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:50"
+                                                         RepeatBehavior="Forever" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Grid.Triggers>
+                        <Ellipse Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" StrokeDashArray="1 5" />
+                        <Ellipse Width="46" Height="46" Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" />
+                        <Line X1="32" Y1="0" X2="32" Y2="9" Stroke="{StaticResource AccentAmberBrush}" StrokeThickness="1.5" />
+                        <Line X1="32" Y1="55" X2="32" Y2="64" Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" />
+                        <Line X1="0" Y1="32" X2="9" Y2="32" Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" />
+                        <Line X1="55" Y1="32" X2="64" Y2="32" Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- ============ Status bar ============ -->
+        <Border Grid.Row="2" Background="{StaticResource BgPanelBrush}"
+                BorderBrush="{StaticResource LineCyanDimBrush}" BorderThickness="0,1,0,0" Padding="16,7">
+            <TextBlock Text="{Binding StatusText}" FontSize="10.5" TextWrapping="Wrap"
+                       Foreground="{StaticResource TextDimBrush}" />
+        </Border>
     </Grid>
 </Window>

@@ -8,10 +8,12 @@ modulaires (kitbashing procédural) et les exporter en `.glb` pour Unity.
 - `src/ShipDesign.Core` — modèles, chargement des pièces, moteur d'assemblage, export glTF.
   Ne dépend pas de WPF : réutilisable telle quelle (tests, CLI, etc.).
 - `src/ShipDesign.App` — interface WPF (viewport HelixToolkit) qui utilise `ShipDesign.Core`.
-  Sélecteur de template, champ de seed éditable (reproductibilité), liste des pièces
-  assemblées avec édition manuelle (sélectionner une pièce pour la remplacer par une autre
-  du même type, ou ajuster son échelle via un slider), boutons Régénérer (seed aléatoire)
-  et Exporter (`.glb` via boîte de dialogue).
+  Thème sombre façon HUD sci-fi ([Theme.xaml](src/ShipDesign.App/Theme.xaml) : palette
+  cyan/ambre, panneaux, sélecteur de template en boutons segmentés, overlay de stats et
+  réticule animé dans le viewport). Sélecteur de template, champ de seed éditable
+  (reproductibilité), liste des pièces assemblées avec édition manuelle (sélectionner une
+  pièce pour la remplacer par une autre du même type, ou ajuster son échelle via un slider),
+  boutons Régénérer (seed aléatoire) et Exporter (`.glb` via boîte de dialogue).
 - `Assets/Parts` — bibliothèque de pièces. Chaque pièce est un fichier `.glb`/`.gltf`, avec
   un fichier `.json` optionnel du même nom pour ses métadonnées (catégorie, taille, tags).
 - `Assets/Templates` — templates de vaisseaux, un fichier `.json` par template

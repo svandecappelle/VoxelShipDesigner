@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Windows.Input;
 using System.Windows.Media.Media3D;
 using Microsoft.Win32;
@@ -39,6 +41,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _seedInput = "";
     private PartListEntry? _selectedPartEntry;
     private float _selectedPartScale = 1f;
+    private string _designation = "";
+    private int _triangleCount;
 
     public IReadOnlyList<ShipTemplate> AvailableTemplates { get; private set; } = Array.Empty<ShipTemplate>();
 
@@ -60,6 +64,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public int Seed { get => _seed; private set { _seed = value; OnPropertyChanged(); SeedInput = value.ToString(); } }
     public string SeedInput { get => _seedInput; set { _seedInput = value; OnPropertyChanged(); } }
     public IReadOnlyList<PartListEntry> PartsSummary { get; private set; } = Array.Empty<PartListEntry>();
+    public string Designation { get => _designation; private set { _designation = value; OnPropertyChanged(); } }
+    public int TriangleCount { get => _triangleCount; private set { _triangleCount = value; OnPropertyChanged(); } }
 
     public PartListEntry? SelectedPartEntry
     {
@@ -153,6 +159,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _currentShip = _baseShip;
             ShipModel = BuildModel(_currentShip);
             RefreshPartsSummary();
+            UpdateHudStats();
             StatusText = $"Vaisseau '{SelectedTemplate.Name}' généré (seed {seed}, {_currentShip.Parts.Count} pièce(s)).";
         }
         catch (InvalidOperationException ex)
@@ -228,6 +235,48 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _currentShip = new ShipInstance { TemplateName = _baseShip.TemplateName, Parts = parts };
         ShipModel = BuildModel(_currentShip);
         RefreshPartsSummary();
+        UpdateHudStats();
+    }
+
+    private void UpdateHudStats()
+    {
+        var prefix = StripDiacritics(SelectedTemplate.Name.ToUpperInvariant())
+            .Where(c => c is >= 'A' and <= 'Z')
+            .Take(3)
+            .ToArray();
+        Designation = $"{(prefix.Length > 0 ? new string(prefix) : "SHP")}-{1000 + (uint)Seed % 9000}";
+
+        TriangleCount = _shipModel is Model3DGroup group ? CountTriangles(group) : 0;
+    }
+
+    private static int CountTriangles(Model3DGroup group)
+    {
+        var count = 0;
+        foreach (var child in group.Children)
+        {
+            switch (child)
+            {
+                case GeometryModel3D { Geometry: MeshGeometry3D mesh }:
+                    count += mesh.TriangleIndices.Count / 3;
+                    break;
+                // BuildModel nests one Model3DGroup per placed part, so the actual
+                // GeometryModel3D primitives are one level deeper than this group's children.
+                case Model3DGroup nested:
+                    count += CountTriangles(nested);
+                    break;
+            }
+        }
+        return count;
+    }
+
+    private static string StripDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
     private void RefreshPartsSummary()

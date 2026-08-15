@@ -1,25 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 
 namespace ShipDesign.App
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
+        private readonly DispatcherTimer _autoRotateTimer = new() { Interval = TimeSpan.FromMilliseconds(30) };
+        private double _autoRotateAngle;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -35,6 +25,27 @@ namespace ShipDesign.App
             // The initial ship is assembled synchronously in the view model's constructor,
             // i.e. before the PropertyChanged subscription above can catch it — so zoom once more here.
             Loaded += (_, _) => Viewport.ZoomExtents();
+
+            _autoRotateTimer.Tick += (_, _) => StepAutoRotate();
+            AutoRotateToggle.Checked += (_, _) => _autoRotateTimer.Start();
+            AutoRotateToggle.Unchecked += (_, _) => _autoRotateTimer.Stop();
+        }
+
+        private void StepAutoRotate()
+        {
+            if (Viewport.Camera is not PerspectiveCamera camera)
+                return;
+
+            var position = camera.Position;
+            var radius = Math.Sqrt(position.X * position.X + position.Z * position.Z);
+            if (radius < 0.01)
+                radius = 5;
+
+            _autoRotateAngle += 0.006;
+            var x = radius * Math.Cos(_autoRotateAngle);
+            var z = radius * Math.Sin(_autoRotateAngle);
+            camera.Position = new Point3D(x, position.Y, z);
+            camera.LookDirection = new Vector3D(-x, -position.Y, -z);
         }
     }
 }
