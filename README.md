@@ -8,13 +8,15 @@ modulaires (kitbashing procédural) et les exporter en `.glb` pour Unity.
 - `src/ShipDesign.Core` — modèles, chargement des pièces, moteur d'assemblage, export glTF.
   Ne dépend pas de WPF : réutilisable telle quelle (tests, CLI, etc.).
 - `src/ShipDesign.App` — interface WPF (viewport HelixToolkit) qui utilise `ShipDesign.Core`.
-  Sélecteur de template ([ShipTemplateCatalog](src/ShipDesign.App/ViewModels/ShipTemplateCatalog.cs) —
-  "Chasseur" / "Éclaireur"), champ de seed éditable (reproductibilité), liste des pièces
+  Sélecteur de template, champ de seed éditable (reproductibilité), liste des pièces
   assemblées avec édition manuelle (sélectionner une pièce pour la remplacer par une autre
   du même type, ou ajuster son échelle via un slider), boutons Régénérer (seed aléatoire)
   et Exporter (`.glb` via boîte de dialogue).
 - `Assets/Parts` — bibliothèque de pièces. Chaque pièce est un fichier `.glb`/`.gltf`, avec
   un fichier `.json` optionnel du même nom pour ses métadonnées (catégorie, taille, tags).
+- `Assets/Templates` — templates de vaisseaux, un fichier `.json` par template
+  ([ShipTemplateLoader](src/ShipDesign.Core/Loading/ShipTemplateLoader.cs) les charge tous
+  au démarrage ; voir "Ajouter un template" plus bas).
 - `tools/PlaceholderPartGenerator` — génère des pièces "greybox" (boîtes) directement en C#,
   pour tester toute la chaîne sans dépendre de Blender. À terme, ces pièces seront remplacées
   par de vrais assets modélisés à la main.
@@ -54,6 +56,26 @@ pour pouvoir tester le remplacement de pièce dans l'UI).
 
 Catégories disponibles : `Hull`, `Wing`, `Engine`, `Weapon`, `Greeble`, `Cockpit`.
 
+## Ajouter un template
+
+Créer un fichier `.json` dans `Assets/Templates/` (voir
+[fighter.json](Assets/Templates/fighter.json) pour un exemple) :
+
+```json
+{
+  "name": "Bombardier",
+  "hullPartId": "hull_fighter_01",
+  "slots": [
+    { "socketPattern": "wing_", "category": "Wing", "minCount": 2, "maxCount": 2 },
+    { "socketPattern": "engine_", "category": "Engine", "minCount": 2, "maxCount": 2 }
+  ]
+}
+```
+
+`socketPattern` sélectionne les sockets de la coque dont le nom commence par cette valeur
+(ex: `"wing_"` matche `socket_wing_L` et `socket_wing_R`). Il apparaît automatiquement dans
+le sélecteur de l'application au prochain lancement.
+
 ## Générer un vaisseau (API Core)
 
 ```csharp
@@ -78,5 +100,4 @@ Le `.glb` généré s'importe directement dans Unity (glisser-déposer dans `Ass
 ## Prochaines étapes
 
 - Remplacer les pièces placeholder par de vrais assets modélisés dans Blender.
-- Templates comme données (JSON) plutôt que codés en dur dans `ShipTemplateCatalog`.
 - Undo / historique d'édition (actuellement, seul "Régénérer" repart de zéro).

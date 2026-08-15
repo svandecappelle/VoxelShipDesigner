@@ -24,13 +24,15 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish a échoué (code $LASTEXITCODE)"
 }
 
-# Copie la bibliothèque de pièces à côté de l'exe pour que le build publié
-# reste utilisable tel quel (PartLibrary la cherche en remontant depuis l'exe).
-$partsSource = Join-Path $root "Assets\Parts"
-$partsTarget = Join-Path $output "Assets\Parts"
-if (Test-Path $partsSource) {
-    New-Item -ItemType Directory -Force -Path $partsTarget | Out-Null
-    Copy-Item -Path (Join-Path $partsSource "*") -Destination $partsTarget -Recurse -Force -ErrorAction SilentlyContinue
+# Copie les pièces et templates à côté de l'exe pour que le build publié reste
+# utilisable tel quel (PartLibrary/ShipTemplateLoader les cherchent en remontant depuis l'exe).
+foreach ($assetDir in @("Parts", "Templates")) {
+    $source = Join-Path $root "Assets\$assetDir"
+    $target = Join-Path $output "Assets\$assetDir"
+    if (Test-Path $source) {
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item -Path (Join-Path $source "*") -Destination $target -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host "OK -> $output\ShipDesign.App.exe" -ForegroundColor Green

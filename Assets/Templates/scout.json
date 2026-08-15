@@ -1,0 +1,8 @@
+{
+  "name": "Éclaireur",
+  "hullPartId": "hull_scout_01",
+  "slots": [
+    { "socketPattern": "wing_", "category": "Wing", "minCount": 2, "maxCount": 2 },
+    { "socketPattern": "engine_", "category": "Engine", "minCount": 1, "maxCount": 1 }
+  ]
+}

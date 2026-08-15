@@ -40,7 +40,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private PartListEntry? _selectedPartEntry;
     private float _selectedPartScale = 1f;
 
-    public IReadOnlyList<ShipTemplate> AvailableTemplates { get; } = ShipTemplateCatalog.All;
+    public IReadOnlyList<ShipTemplate> AvailableTemplates { get; private set; } = Array.Empty<ShipTemplate>();
 
     public ShipTemplate SelectedTemplate
     {
@@ -97,22 +97,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ReplacePartCommand = new RelayCommand(_ => ReplaceSelectedPart(), _ => _selectedPartEntry is not null && _library is not null);
         ExportCommand = new RelayCommand(_ => Export(), _ => _currentShip is not null);
 
-        _selectedTemplate = AvailableTemplates[0];
-
-        var partsDirectory = FindPartsDirectory();
-        if (partsDirectory is null)
+        var partsDirectory = FindAssetsSubdirectory("Parts");
+        var templatesDirectory = FindAssetsSubdirectory("Templates");
+        if (partsDirectory is null || templatesDirectory is null)
         {
-            StatusText = "Dossier Assets/Parts introuvable.";
+            _selectedTemplate = null!;
+            StatusText = "Dossier Assets/Parts ou Assets/Templates introuvable.";
             return;
         }
 
         _library = PartLibrary.LoadFromDirectory(partsDirectory);
+        AvailableTemplates = ShipTemplateLoader.LoadFromDirectory(templatesDirectory);
+
         if (_library.Parts.Count == 0)
         {
+            _selectedTemplate = null!;
             StatusText = $"Aucune pièce dans {partsDirectory}. Lance tools/PlaceholderPartGenerator pour générer des pièces de test.";
             return;
         }
 
+        if (AvailableTemplates.Count == 0)
+        {
+            _selectedTemplate = null!;
+            StatusText = $"Aucun template dans {templatesDirectory}.";
+            return;
+        }
+
+        _selectedTemplate = AvailableTemplates[0];
         _assembler = new ShipAssembler(_library);
         Regenerate();
     }
@@ -272,12 +283,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return group;
     }
 
-    private static string? FindPartsDirectory()
+    private static string? FindAssetsSubdirectory(string name)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         for (var i = 0; i < 8 && dir is not null; i++, dir = dir.Parent)
         {
-            var candidate = Path.Combine(dir.FullName, "Assets", "Parts");
+            var candidate = Path.Combine(dir.FullName, "Assets", name);
             if (Directory.Exists(candidate))
                 return candidate;
         }
