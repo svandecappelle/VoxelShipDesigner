@@ -43,6 +43,36 @@ public static class GreebleBuilder
             results.Add((greebleMesh, transform));
         }
 
+        if (p.TurretCount > 0)
+        {
+            var turretMaterial = new MaterialBuilder("turret")
+                .WithMetallicRoughness(0.5f, 0.4f)
+                .WithBaseColor(new Vector4(0.2f, 0.22f, 0.25f, 1f));
+            var turretMesh = BuildTurret(turretMaterial);
+
+            // Deterministic (not seeded), evenly spaced along the flat body, alternating
+            // either side of the dorsal centerline -- a row of weapon emplacements, the kind
+            // of detail that reads as "warship" rather than "single fuselage with panels".
+            for (var i = 0; i < p.TurretCount; i++)
+            {
+                var t = (i + 0.5f) / p.TurretCount;
+                var u = preset.NoseFraction + t * (preset.TailFraction - preset.NoseFraction);
+                var side = i % 2 == 0 ? 1f : -1f;
+                var angle = MathF.PI / 2f - side * 0.55f;
+                var r = HullBuilder.RadiusAt(u, angle, p, preset);
+                var z = HullBuilder.ZAt(u, p.Length);
+                var transform = Matrix4x4.CreateFromAxisAngle(Vector3.UnitZ, angle)
+                    * Matrix4x4.CreateTranslation(MathF.Cos(angle) * r * 0.98f, MathF.Sin(angle) * r * 0.98f, z);
+                results.Add((turretMesh, transform));
+            }
+        }
+
+        // Structural collar (a chunky raised band, like an armor ring or a docking collar --
+        // not just a thin painted line) at each deck boundary, plus a thin emissive trim line
+        // right at its edge for a bit of accent color.
+        var collarMaterial = new MaterialBuilder("hull_collar")
+            .WithMetallicRoughness(0.5f, 0.5f)
+            .WithBaseColor(new Vector4(p.HullColor.ToVector3() * 0.75f, 1f));
         var lineMaterial = new MaterialBuilder("deck_line")
             .WithMetallicRoughness(0.1f, 0.9f)
             .WithBaseColor(p.AccentColor.ToVector4())
@@ -54,9 +84,14 @@ public static class GreebleBuilder
             var (halfWidth, halfHeight) = HullBuilder.ProfileAt(u, p, preset);
             var r = (halfWidth + halfHeight) / 2f;
             var z = HullBuilder.ZAt(u, p.Length);
-            var ringMesh = MeshUtil.BuildTorus(r * 1.01f, MathF.Max(r * 0.02f, 0.01f), lineMaterial,
+
+            var collarMesh = MeshUtil.BuildTorus(r * 1.05f, MathF.Max(r * 0.06f, 0.03f), collarMaterial,
                 tubeSegments: 6, ringSegments: preset.RadialSegments);
-            results.Add((ringMesh, Matrix4x4.CreateTranslation(0, 0, z)));
+            results.Add((collarMesh, Matrix4x4.CreateTranslation(0, 0, z)));
+
+            var lineMesh = MeshUtil.BuildTorus(r * 1.12f, MathF.Max(r * 0.015f, 0.01f), lineMaterial,
+                tubeSegments: 6, ringSegments: preset.RadialSegments);
+            results.Add((lineMesh, Matrix4x4.CreateTranslation(0, 0, z)));
         }
 
         return results;
@@ -98,4 +133,16 @@ public static class GreebleBuilder
     }
 
     private static IVertexBuilder Wrap(VertexPositionNormal v) => new VertexBuilder<VertexPositionNormal, VertexEmpty, VertexEmpty>(v);
+
+    /// <summary>A small stepped turret: a base mount flush against the hull plus a narrower
+    /// "barrel" block further out, both sticking out along local +X (the same outward
+    /// convention as the plain greeble boxes, so it reuses their placement transform).</summary>
+    private static MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty> BuildTurret(MaterialBuilder material)
+    {
+        var mesh = new MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>("turret");
+        var prim = mesh.UsePrimitive(material);
+        MeshUtil.AddBox(prim, new Vector3(0.09f, 0f, 0f), new Vector3(0.09f, 0.14f, 0.14f));
+        MeshUtil.AddBox(prim, new Vector3(0.26f, 0.02f, 0f), new Vector3(0.16f, 0.05f, 0.05f));
+        return mesh;
+    }
 }

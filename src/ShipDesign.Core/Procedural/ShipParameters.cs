@@ -22,7 +22,11 @@ public sealed class ShipParameters
 
     public bool Greebles { get; set; } = true;
     public float GreebleDensity { get; set; } = 0.5f;
+    public int TurretCount { get; set; } = 4;
     public int Seed { get; set; } = 2291;
+
+    public bool Superstructure { get; set; } = true;
+    public float SuperstructureSize { get; set; } = 1f;
 
     public ShipColor HullColor { get; set; } = ShipColor.HullDefault;
     public ShipColor AccentColor { get; set; } = ShipColor.AccentDefault;

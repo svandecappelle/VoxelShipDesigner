@@ -25,6 +25,10 @@ public static class ProceduralShipBuilder
         if (cockpit is not null)
             scene.AddRigidMesh(cockpit.Value.Mesh, cockpit.Value.Transform);
 
+        var superstructure = SuperstructureBuilder.Build(p, preset);
+        if (superstructure is not null)
+            scene.AddRigidMesh(superstructure.Value.Mesh, superstructure.Value.Transform);
+
         foreach (var (mesh, transform) in GreebleBuilder.Build(p, preset))
             scene.AddRigidMesh(mesh, transform);
 

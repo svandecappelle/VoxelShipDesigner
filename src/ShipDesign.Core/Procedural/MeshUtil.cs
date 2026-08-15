@@ -7,7 +7,7 @@ namespace ShipDesign.Core.Procedural;
 
 /// <summary>Small helpers shared by the hull/wing/engine/cockpit builders for stitching
 /// rings of vertices into quad bands — the common pattern behind lathes, cylinders and tori.</summary>
-internal static class MeshUtil
+public static class MeshUtil
 {
     public static VertexPositionNormal[] Ring(float radius, float z, Vector2 normal2D, int segments)
     {
@@ -133,5 +133,21 @@ internal static class MeshUtil
             var k1 = (k + 1) % n;
             AddFlatTriangle(prim, apex, ring[k], ring[k1]);
         }
+    }
+
+    /// <summary>Adds a flat-shaded box, centered at <paramref name="center"/>, to an existing
+    /// primitive -- used to build up multi-block structures (superstructure tiers, turrets)
+    /// as a single mesh rather than one mesh per box.</summary>
+    public static void AddBox(IPrimitiveBuilder prim, Vector3 center, Vector3 halfExtents)
+    {
+        Vector3 C(float sx, float sy, float sz) =>
+            center + new Vector3(sx * halfExtents.X, sy * halfExtents.Y, sz * halfExtents.Z);
+
+        AddFlatQuad(prim, C(-1, -1, 1), C(1, -1, 1), C(1, 1, 1), C(-1, 1, 1));    // +Z
+        AddFlatQuad(prim, C(1, -1, -1), C(-1, -1, -1), C(-1, 1, -1), C(1, 1, -1)); // -Z
+        AddFlatQuad(prim, C(-1, -1, -1), C(-1, -1, 1), C(-1, 1, 1), C(-1, 1, -1)); // -X
+        AddFlatQuad(prim, C(1, -1, 1), C(1, -1, -1), C(1, 1, -1), C(1, 1, 1));    // +X
+        AddFlatQuad(prim, C(-1, 1, 1), C(1, 1, 1), C(1, 1, -1), C(-1, 1, -1));    // +Y
+        AddFlatQuad(prim, C(-1, -1, -1), C(1, -1, -1), C(1, -1, 1), C(-1, -1, 1)); // -Y
     }
 }

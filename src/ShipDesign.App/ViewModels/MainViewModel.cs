@@ -55,6 +55,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public bool Greebles { get => _parameters.Greebles; set { _parameters.Greebles = value; OnPropertyChanged(); Rebuild(); } }
     public float GreebleDensity { get => _parameters.GreebleDensity; set { _parameters.GreebleDensity = value; OnPropertyChanged(); Rebuild(); } }
+    public int TurretCount { get => _parameters.TurretCount; set { _parameters.TurretCount = value; OnPropertyChanged(); Rebuild(); } }
+
+    public bool Superstructure { get => _parameters.Superstructure; set { _parameters.Superstructure = value; OnPropertyChanged(); Rebuild(); } }
+    public float SuperstructureSize { get => _parameters.SuperstructureSize; set { _parameters.SuperstructureSize = value; OnPropertyChanged(); Rebuild(); } }
 
     public string SeedText { get => _seedText; set { _seedText = value; OnPropertyChanged(); } }
 
@@ -130,6 +134,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.CockpitSize = 0.6f + (float)_random.NextDouble();
         _parameters.Greebles = _random.NextDouble() > 0.15;
         _parameters.GreebleDensity = (float)_random.NextDouble();
+        _parameters.TurretCount = _random.Next(9);
+        _parameters.Superstructure = _random.NextDouble() > 0.2;
+        _parameters.SuperstructureSize = 0.7f + (float)_random.NextDouble() * 0.8f;
         _parameters.Seed = _random.Next(1000, 9999);
         _parameters.HullColor = ShipColor.RandomHsl(_random, 5, 25, 55, 85);
         _parameters.AccentColor = ShipColor.RandomHsl(_random, 30, 60, 50, 70);

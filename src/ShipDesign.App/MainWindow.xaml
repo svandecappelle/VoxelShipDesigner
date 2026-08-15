@@ -195,6 +195,27 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Superstructure -->
+                        <Border Style="{StaticResource PanelBorderStyle}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="SUPERSTRUCTURE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Superstructure}" Margin="0,0,8,0" />
+                                    <TextBlock Text="Tourelle de commandement" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Taille" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SuperstructureSize, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="2" Value="{Binding SuperstructureSize}" />
+                            </StackPanel>
+                        </Border>
+
                         <!-- Détails de surface -->
                         <Border Style="{StaticResource PanelBorderStyle}">
                             <StackPanel>
@@ -213,6 +234,13 @@
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding GreebleDensity, StringFormat='{}{0:P0}'}" />
                                 </Grid>
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding GreebleDensity}" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Tourelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding TurretCount}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="8" Value="{Binding TurretCount}"
+                                        TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
 
                                 <TextBlock Text="Graine (seed)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
                                 <Grid>

@@ -1,9 +1,10 @@
 # ShipDesign
 
 Application desktop (.NET 7 / WPF) générant des vaisseaux spatiaux **entièrement de manière
-procédurale** — coque, ailes, moteurs, cockpit et greebles sont construits par code à partir
-d'une quinzaine de paramètres continus (longueur, largeur, effilement, angle de flèche,
-nombre de tuyères, couleurs de livrée...) — et les exportant en `.glb` pour Unity.
+procédurale** — coque, ailes, moteurs, cockpit, tourelle de commandement, tourelles d'armement
+et greebles sont construits par code à partir d'une vingtaine de paramètres continus (longueur,
+largeur, effilement, angle de flèche, nombre de tuyères/tourelles, couleurs de livrée...) — et
+les exportant en `.glb` pour Unity.
 
 L'UI reprend l'identité visuelle du mockup `vessel-forge.html` (thème HUD sombre cyan/ambre).
 La coque utilise volontairement un langage visuel **anguleux/hard-surface** (facettes nettes,
@@ -25,10 +26,16 @@ révolution lisse façon avion de chasse — voir "Pourquoi une coque anguleuse 
     positionnées en cercle à l'arrière selon leur nombre.
   - `Procedural/CockpitBuilder.cs` — bulle (demi-sphère partielle) ou verrière plate, matériau
     transparent teinté.
-  - `Procedural/GreebleBuilder.cs` — détails de surface dispersés (seedés) + anneaux de pont.
+  - `Procedural/SuperstructureBuilder.cs` — tourelle de commandement (pont) en 2 étages,
+    posée sur le dessus de la coque, en arrière du centre — l'élément qui casse le plus une
+    silhouette "fuselage unique" en lecture "vaisseau capital" (absent pour les chasseurs,
+    trop petits pour avoir un pont séparé).
+  - `Procedural/GreebleBuilder.cs` — détails de surface dispersés (seedés), tourelles
+    d'armement (positions déterministes, alternées de part et d'autre de la ligne dorsale) et
+    colliers structurels massifs (pas de simples lignes fines) aux jonctions de pont.
   - `Procedural/MeshUtil.cs` — utilitaires bas niveau partagés (anneaux de sommets, tore,
-    liaison en bandes de quads) ; toute la géométrie a été validée triangle par triangle
-    (cohérence normale/winding) via des tests jetables pendant le développement.
+    boîtes, liaison en bandes de quads) ; toute la géométrie a été validée triangle par
+    triangle (cohérence normale/winding) via des tests jetables pendant le développement.
   - `Procedural/ProceduralShipBuilder.cs` — point d'entrée : assemble tout en un seul
     `SharpGLTF.Schema2.ModelRoot`, plus les stats d'affichage (désignation, classe de masse).
 - `src/ShipDesign.App` — interface WPF (viewport HelixToolkit).
@@ -36,8 +43,9 @@ révolution lisse façon avion de chasse — voir "Pourquoi une coque anguleuse 
     cyan/ambre, panneaux, sélecteurs en boutons segmentés, slider à curseur ambre, overlay de
     stats et réticule animé dans le viewport, toggle d'orbite automatique de la caméra).
   - Tous les paramètres sont modifiables en direct (chaque changement régénère le vaisseau) :
-    classe de coque, géométrie, ailes, propulsion, cockpit, détails de surface (seed inclus),
-    livrée (4 couleurs, palette de préréglages). Bouton "Vaisseau aléatoire" et export `.glb`.
+    classe de coque, géométrie, ailes, propulsion, cockpit, superstructure (tourelle de
+    commandement), détails de surface (greebles, tourelles, seed inclus), livrée (4 couleurs,
+    palette de préréglages). Bouton "Vaisseau aléatoire" et export `.glb`.
 
 ## Lancer l'application
 
@@ -82,6 +90,26 @@ rappeler un archétype reconnaissable :
 - **Croiseur** — coque en coin plate façon Star Destroyer (largeur ≫ hauteur), long biseau
   progressif jusqu'à une proue pointue plutôt qu'un nez court.
 
+## Pourquoi une tourelle de commandement et des tourelles d'armement ?
+
+Même avec une coque anguleuse, "un seul fuselage + deux ailes" continue de se lire comme
+"une fusée avec des ailes" — la topologie reste celle d'un avion. Casser cette lecture demande
+de la vraie complexité *structurelle*, pas juste une silhouette différente :
+
+- **`SuperstructureBuilder`** ajoute un pont/tourelle de commandement en 2 étages, posé sur le
+  dessus de la coque — la référence directe étant le pont d'un Star Destroyer ou le CIC d'un
+  Battlestar. C'est l'élément qui, à lui seul, fait le plus basculer la lecture "avion" vers
+  "vaisseau capital assemblé". Absent pour les chasseurs (monoplace, pas de pont séparé).
+- **Les tourelles** (`GreebleBuilder`, paramètre `TurretCount`) sont des greebles plus grosses
+  et positionnées de façon déterministe (pas aléatoire comme les greebles ordinaires) : une
+  rangée dorsale alternée qui donne une lecture "vaisseau armé" plutôt que "coque nue avec des
+  décorations".
+- **Les colliers de coque** (aux jonctions du profil) sont maintenant des anneaux structurels
+  massifs plutôt que de simples traits lumineux fins — plus proches d'un anneau d'amarrage ou
+  d'une bande de blindage.
+- **Les ailes** sont plus épaisses (0.25+ au lieu de 0.15, une plaque structurelle plutôt qu'un
+  profil aérodynamique fin) et portent maintenant deux blocs de panneaux en relief.
+
 ## Étendre le générateur
 
 - **Nouvelle classe de coque** : ajouter une entrée à `HullClassPreset.All` — une liste de
@@ -96,9 +124,11 @@ rappeler un archétype reconnaissable :
 
 ## Prochaines étapes
 
-- Les ailes (`WingBuilder`) sont restées un panneau trapézoïdal simple type aile d'avion ; un
-  prochain passage pourrait les rendre plus "structurelles" (moins de balayage aérodynamique,
-  panneaux plus épais/greeblés, pylônes de fixation visibles).
+- Segmentation de la coque elle-même en plusieurs volumes distincts (façon soucoupe + nacelles
+  sur pylônes de Star Trek), plutôt qu'une seule coque continue avec une superstructure greffée
+  dessus.
+- Plus de variété de greebles (antennes, dishes, panneaux de radiateur) au lieu du seul type
+  "boîte" actuel.
 - Undo / historique (actuellement, chaque changement régénère directement, pas d'annulation).
 - Sélecteur de couleur libre (actuellement une palette de 8 préréglages par canal) plutôt
   qu'un simple ensemble de pastilles.

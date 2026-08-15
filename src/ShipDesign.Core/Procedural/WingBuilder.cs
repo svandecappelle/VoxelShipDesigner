@@ -33,7 +33,9 @@ public static class WingBuilder
         var sweep = p.WingSweepDegrees * MathF.PI / 180f;
         var chordRoot = cfg.ChordRootFactor * (p.Length * 0.18f);
         var chordTip = cfg.ChordTipFactor * (p.Length * 0.18f);
-        var thickness = 0.12f + p.Beam * 0.01f;
+        // Thicker than an aerodynamic airfoil would need -- a structural plate/pylon, not a
+        // wing meant to generate lift (there's no air to push against in space anyway).
+        var thickness = 0.25f + p.Beam * 0.03f;
         var dihedral = cfg.DihedralDegrees * MathF.PI / 180f;
 
         var mesh = BuildPrism(chordRoot, chordTip, span, sweep, thickness, p.AccentColor);
@@ -95,6 +97,14 @@ public static class WingBuilder
         Side(p1, p2);
         Side(p2, p3);
         Side(p3, p0);
+
+        // A couple of raised panel blocks on the top surface -- breaks up the flat single-plate
+        // silhouette that otherwise reads as an aircraft wing.
+        for (var i = 0; i < 2; i++)
+        {
+            var spanX = span * (0.28f + i * 0.38f);
+            MeshUtil.AddBox(prim, new Vector3(spanX, halfT + 0.02f, 0f), new Vector3(span * 0.07f, 0.02f, chordRoot * 0.18f));
+        }
 
         return mesh;
     }
