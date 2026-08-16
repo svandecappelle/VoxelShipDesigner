@@ -38,6 +38,11 @@ public sealed class ShipParameters
     /// <summary>Pod length along the hull axis.</summary>
     public float NacelleLength { get; set; } = 1f;
 
+    /// <summary>How far outboard the pods hang, as a multiplier on the clearance between the hull
+    /// flank and the pod's inner edge. Low values tuck the pods against the hull; high values put
+    /// them on long pylons well clear of it.</summary>
+    public float NacelleSpacing { get; set; } = 1f;
+
     public ShipColor HullColor { get; set; } = ShipColor.HullDefault;
     public ShipColor AccentColor { get; set; } = ShipColor.AccentDefault;
     public ShipColor EngineGlowColor { get; set; } = ShipColor.EngineGlowDefault;

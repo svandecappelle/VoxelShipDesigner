@@ -229,7 +229,13 @@
                                     <TextBlock Text="Longueur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleLength, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleLength}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleLength}" Margin="0,0,0,12" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Espacement nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSpacing, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="2.5" Value="{Binding NacelleSpacing}" />
                             </StackPanel>
                         </Border>
 

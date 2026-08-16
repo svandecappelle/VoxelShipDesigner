@@ -68,6 +68,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool Nacelles { get => _parameters.Nacelles; set { _parameters.Nacelles = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleWidth { get => _parameters.NacelleWidth; set { _parameters.NacelleWidth = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleLength { get => _parameters.NacelleLength; set { _parameters.NacelleLength = value; OnPropertyChanged(); Rebuild(); } }
+    public float NacelleSpacing { get => _parameters.NacelleSpacing; set { _parameters.NacelleSpacing = value; OnPropertyChanged(); Rebuild(); } }
 
     public string SeedText { get => _seedText; set { _seedText = value; OnPropertyChanged(); } }
 
@@ -151,6 +152,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // uniformly-scaled ones -- the reason the knob was split in the first place.
         _parameters.NacelleWidth = 0.6f + (float)_random.NextDouble() * 0.9f;
         _parameters.NacelleLength = 0.6f + (float)_random.NextDouble() * 0.9f;
+        _parameters.NacelleSpacing = 0.5f + (float)_random.NextDouble() * 1.3f;
         _parameters.Seed = _random.Next(1000, 9999);
         // Ranges keep a random ship inside the reference art style rather than letting it land on
         // any hue at any lightness: a pale desaturated hull, a saturated mid-dark accent that

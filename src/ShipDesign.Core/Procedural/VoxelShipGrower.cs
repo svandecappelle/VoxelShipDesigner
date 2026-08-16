@@ -269,8 +269,15 @@ public static class VoxelShipGrower
                 {
                     var shoulder = Shoulder(x, hw);
                     var slabTop = Math.Max(1, height - (int)MathF.Round(shoulder * height * 0.5f));
-                    for (var dy = 1; dy <= slabTop; dy++)
-                        grid.SetMirrored(x, env.Top[z] + dy, z, VoxelMaterial.Hull);
+
+                    // Fill from the column's real surface up to the target height rather than from
+                    // Top[z] up: out toward the terrace's edge the chamfered deck sits well below
+                    // the centreline top, so starting at Top[z] leaves the slab hanging in mid-air.
+                    var surface = TopFilledY(grid, x, z);
+                    if (surface is null) continue;
+
+                    for (var y = surface.Value + 1; y <= env.Top[z] + slabTop; y++)
+                        grid.SetMirrored(x, y, z, VoxelMaterial.Hull);
                 }
 
                 env.Top[z] += height;
@@ -340,14 +347,21 @@ public static class VoxelShipGrower
         var halfLength = Math.Max(4, (int)MathF.Round(len * 0.2f * p.NacelleLength));
         var centerZ = (int)MathF.Round(Math.Clamp(layout.NacelleCenter, 0.35f, 0.8f) * (len - 1));
         var hullHalfWidth = env.HalfWidth[Math.Clamp(centerZ, 0, len - 1)];
-        var nacelleX = hullHalfWidth + radius + 3;
+
+        // Clearance between hull flank and pod, scaled off the hull's own height so the gap stays
+        // proportionally the same at any voxel resolution rather than shrinking as voxels get finer.
+        var gap = Math.Max(1, (int)MathF.Round(maxHH * 0.6f * p.NacelleSpacing));
+        var nacelleX = hullHalfWidth + radius + gap;
         var nacelleY = -radius - 1;
 
-        // Pylon: a thin blade bridging hull to pod, angled down so the pod hangs below the wing line.
+        // Pylon: a thin blade bridging hull to pod, angled down so the pod hangs below the wing
+        // line. Its thickness follows the detail unit -- at high resolution and wide spacing a
+        // fixed 3-voxel blade would read as a thread holding the pod on.
+        var pylonHalfThickness = Math.Max(1, DetailUnit(len));
         for (var x = hullHalfWidth; x <= nacelleX; x++)
         {
             var drop = (int)MathF.Round((x - hullHalfWidth) / (float)Math.Max(1, nacelleX - hullHalfWidth) * -nacelleY);
-            for (var dz = -1; dz <= 1; dz++)
+            for (var dz = -pylonHalfThickness; dz <= pylonHalfThickness; dz++)
                 for (var dy = -drop; dy <= 0; dy++)
                     grid.SetMirrored(x, dy, centerZ + dz, VoxelMaterial.HullDark);
         }
@@ -429,8 +443,14 @@ public static class VoxelShipGrower
 
             var x = Math.Max(1, (int)MathF.Round(hw * 0.55f));
             var onTop = i % 2 == 0;
-            var baseY = onTop ? env.Top[z] + 1 : -env.Bottom[z] - 1;
             var dir = onTop ? 1 : -1;
+
+            // Seat the mount on the *actual* surface at this column, not on the envelope arrays:
+            // the real deck sits lower than Top[z] out on the chamfered flank and outside the
+            // terraces' width, so trusting the envelope leaves turrets floating clear of the hull.
+            var surfaceY = onTop ? TopFilledY(grid, x, z) : BottomFilledY(grid, x, z);
+            if (surfaceY is null) continue;
+            var baseY = surfaceY.Value + dir;
 
             // Base ring, then a smaller housing, then a barrel poking forward.
             for (var dz = -baseRadius; dz <= baseRadius; dz++)
@@ -439,12 +459,15 @@ public static class VoxelShipGrower
                         grid.SetMirrored(x + dx, baseY + dy * dir, z + dz, VoxelMaterial.HullDark);
 
             var housingY = baseY + detail * dir;
-            for (var dz = -baseRadius / 2; dz <= baseRadius / 2; dz++)
+            var housingHalf = Math.Max(1, baseRadius / 2);
+            for (var dz = -housingHalf; dz <= housingHalf; dz++)
                 for (var dy = 0; dy < detail; dy++)
                     grid.SetMirrored(x, housingY + dy * dir, z + dz, VoxelMaterial.Panel);
 
+            // Start the barrel flush against the housing's forward face. Measuring it from the
+            // wider base ring instead left a one-voxel gap, detaching the barrel entirely.
             for (var dz = 1; dz <= barrelLength; dz++)
-                grid.SetMirrored(x, housingY, z - baseRadius - dz, VoxelMaterial.HullDark);
+                grid.SetMirrored(x, housingY, z - housingHalf - dz, VoxelMaterial.HullDark);
         }
     }
 
@@ -709,7 +732,8 @@ public static class VoxelShipGrower
                 for (var x = x0; x <= Math.Min(x0 + widthX, hw); x++)
                 {
                     var topY = TopFilledY(grid, x, z);
-                    if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
+                    if (topY is null || !IsHullDeck(env, topY.Value, z)) continue;
+                    if (!IsPlating(grid, x, topY.Value, z)) continue;
                     for (var dy = 1; dy <= detail; dy++)
                         grid.SetMirrored(x, topY.Value + dy, z, VoxelMaterial.Panel);
                 }
@@ -735,11 +759,21 @@ public static class VoxelShipGrower
             for (var z = z0; z < Math.Min(z0 + lengthZ, len); z++)
                 for (var x = x0; x <= Math.Min(x0 + widthX, hw); x++)
                 {
+                    // Never cut a pocket deeper than the plate it sits in. Toward the tail and out
+                    // on the flanks the hull thins to a couple of voxels, and cutting the full
+                    // depth there punches straight through, severing the column and stranding the
+                    // voxels outboard of it as loose debris.
+                    var columnTop = TopFilledY(grid, x, z);
+                    var columnBottom = BottomFilledY(grid, x, z);
+                    if (columnTop is null || columnBottom is null) continue;
+                    if (columnTop.Value - columnBottom.Value < detail + 1) continue;
+
                     // Cut `detail` voxels deep so the pocket keeps a visible lip at any resolution.
                     for (var step = 0; step < detail; step++)
                     {
                         var topY = TopFilledY(grid, x, z);
-                        if (topY is null || !IsPlating(grid, x, topY.Value, z)) break;
+                        if (topY is null || !IsHullDeck(env, topY.Value, z)) break;
+                        if (!IsPlating(grid, x, topY.Value, z)) break;
 
                         grid.Remove(x, topY.Value, z);
                         grid.Remove(-x, topY.Value, z);
@@ -767,6 +801,18 @@ public static class VoxelShipGrower
         return null;
     }
 
+    /// <summary>Bottommost filled voxel in a column, or null if the column is empty -- the
+    /// underside counterpart to <see cref="TopFilledY"/>, used to seat belly-mounted turrets.</summary>
+    private static int? BottomFilledY(VoxelGrid grid, int x, int z)
+    {
+        if (grid.IsEmpty) return null;
+
+        for (var y = grid.MinY; y <= grid.MaxY; y++)
+            if (grid.IsFilled(x, y, z))
+                return y;
+        return null;
+    }
+
     /// <summary>Outermost filled voxel in a row (positive X side), or null if the row is empty.</summary>
     private static int? SideFilledX(VoxelGrid grid, int y, int z, int searchSide)
     {
@@ -780,4 +826,10 @@ public static class VoxelShipGrower
     /// detail passes against overwriting canopy glass, engine glow or lit ports.</summary>
     private static bool IsPlating(VoxelGrid grid, int x, int y, int z) =>
         grid.Get(x, y, z) is VoxelMaterial.Hull or VoxelMaterial.Panel or VoxelMaterial.HullDark;
+
+    /// <summary>Whether a column's surface is the hull deck itself rather than something standing
+    /// on it. Turrets, the tower and the mast are built from the same plating materials as the
+    /// hull, so <see cref="IsPlating"/> cannot tell them apart -- without this guard the carving
+    /// pass eats into mounted structures and can detach a turret or its barrel from the ship.</summary>
+    private static bool IsHullDeck(Envelope env, int y, int z) => y <= env.Top[z];
 }
