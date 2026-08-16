@@ -14,10 +14,19 @@ namespace ShipDesign.Core.Procedural;
 /// </summary>
 public static class VoxelShipGrower
 {
-    /// <summary>World units per voxel. Sized so a default ship (length 14) is ~54 voxels long:
-    /// fine enough that plating, seams and port lights read as detail rather than as blocking,
-    /// while keeping the culled-mesh triangle count in a sane range for a game asset.</summary>
-    public const float VoxelSize = 0.26f;
+    /// <summary>World units per voxel. Sized so a default ship (length 14) is ~93 voxels long:
+    /// fine enough for smooth chamfers and curved plating while keeping the culled-mesh triangle
+    /// count in a sane range for a game asset.</summary>
+    public const float VoxelSize = 0.15f;
+
+    /// <summary>Voxel count that one "detail unit" was originally tuned against. Decorative
+    /// feature sizes are expressed in detail units rather than raw voxels, so raising the
+    /// resolution makes the *silhouette* finer without shrinking seams, ports and plates into
+    /// speckle -- which is what would happen if a panel seam stayed one voxel wide forever.</summary>
+    private const float DetailBaselineLength = 54f;
+
+    private static int DetailUnit(int lengthVoxels) =>
+        Math.Max(1, (int)MathF.Round(lengthVoxels / DetailBaselineLength));
 
     /// <summary>Fraction of the half-width that stays at full height before the flanks start
     /// chamfering down -- what makes the cross-section a flat-decked trapezoid rather than a box.</summary>
@@ -71,9 +80,9 @@ public static class VoxelShipGrower
         var rng = new Random(p.Seed);
         var grid = new VoxelGrid();
 
-        lengthVoxels = Math.Max(24, (int)MathF.Round(p.Length / VoxelSize));
-        var beamVoxels = Math.Max(8, (int)MathF.Round(p.Beam / VoxelSize));
-        var maxHalfWidth = Math.Max(3, beamVoxels / 2);
+        lengthVoxels = Math.Max(40, (int)MathF.Round(p.Length / VoxelSize));
+        var beamVoxels = Math.Max(14, (int)MathF.Round(p.Beam / VoxelSize));
+        var maxHalfWidth = Math.Max(5, beamVoxels / 2);
         var maxHalfHeight = Math.Max(2, (int)MathF.Round(maxHalfWidth * preset.HeightRatio));
 
         var env = GrowEnvelope(rng, p, preset, lengthVoxels, maxHalfWidth, maxHalfHeight);
@@ -387,24 +396,34 @@ public static class VoxelShipGrower
             y += height;
         }
 
+        // Mast thickness follows the detail unit: a fixed 1-voxel spike would vanish to a hair
+        // at high resolution, and the mast is a silhouette cue that needs to stay readable.
+        var detail = DetailUnit(len);
+        var mastHalf = Math.Max(0, detail / 2);
         var mastHeight = Math.Max(4, (int)MathF.Round(maxHH * 2.2f * scale));
+
         for (var dy = 1; dy <= mastHeight; dy++)
-            grid.SetMirrored(0, y + dy, centerZ, VoxelMaterial.HullDark);
+            for (var x = 0; x <= mastHalf; x++)
+                for (var dz = -mastHalf; dz <= mastHalf; dz++)
+                    grid.SetMirrored(x, y + dy, centerZ + dz, VoxelMaterial.HullDark);
 
         // A short crossbar near the top -- reads as a sensor array and breaks the bare spike.
         var barY = y + (int)MathF.Round(mastHeight * 0.7f);
-        for (var x = 0; x <= 1; x++)
+        for (var x = 0; x <= Math.Max(1, detail * 2); x++)
             grid.SetMirrored(x, barY, centerZ, VoxelMaterial.HullDark);
     }
 
     private static void GrowTurrets(VoxelGrid grid, ShipParameters p, Envelope env, Layout layout, int len)
     {
         var spread = Math.Clamp(layout.TurretSpread, 0.4f, 0.75f);
+        var detail = DetailUnit(len);
+        var baseRadius = Math.Max(1, detail);
+        var barrelLength = Math.Max(2, detail * 3);
 
         for (var i = 0; i < p.TurretCount; i++)
         {
             var t = (i + 0.5f) / p.TurretCount;
-            var z = Math.Clamp((int)MathF.Round((0.2f + t * spread) * (len - 1)), 3, len - 4);
+            var z = Math.Clamp((int)MathF.Round((0.2f + t * spread) * (len - 1)), baseRadius + 1, len - baseRadius - 2);
             var hw = env.HalfWidth[z];
             if (hw < 2) continue;
 
@@ -414,14 +433,18 @@ public static class VoxelShipGrower
             var dir = onTop ? 1 : -1;
 
             // Base ring, then a smaller housing, then a barrel poking forward.
-            for (var dz = -1; dz <= 1; dz++)
-                for (var dx = -1; dx <= 1; dx++)
-                    grid.SetMirrored(x + dx, baseY, z + dz, VoxelMaterial.HullDark);
+            for (var dz = -baseRadius; dz <= baseRadius; dz++)
+                for (var dx = -baseRadius; dx <= baseRadius; dx++)
+                    for (var dy = 0; dy < detail; dy++)
+                        grid.SetMirrored(x + dx, baseY + dy * dir, z + dz, VoxelMaterial.HullDark);
 
-            grid.SetMirrored(x, baseY + dir, z, VoxelMaterial.Panel);
-            grid.SetMirrored(x, baseY + dir, z - 1, VoxelMaterial.Panel);
-            for (var dz = 1; dz <= 2; dz++)
-                grid.SetMirrored(x, baseY + dir, z - 1 - dz, VoxelMaterial.HullDark);
+            var housingY = baseY + detail * dir;
+            for (var dz = -baseRadius / 2; dz <= baseRadius / 2; dz++)
+                for (var dy = 0; dy < detail; dy++)
+                    grid.SetMirrored(x, housingY + dy * dir, z + dz, VoxelMaterial.Panel);
+
+            for (var dz = 1; dz <= barrelLength; dz++)
+                grid.SetMirrored(x, housingY, z - baseRadius - dz, VoxelMaterial.HullDark);
         }
     }
 
@@ -500,7 +523,7 @@ public static class VoxelShipGrower
         var size = Math.Max(0.4f, p.CockpitSize);
         var centerZ = Math.Clamp((int)MathF.Round(preset.NoseFraction * 1.15f * (len - 1)), 2, len - 3);
         var halfLength = Math.Max(2, (int)MathF.Round(len * 0.07f * size));
-        var searchTop = maxHH * 6;
+        var detail = DetailUnit(len);
 
         for (var dz = -halfLength; dz <= halfLength; dz++)
         {
@@ -511,15 +534,16 @@ public static class VoxelShipGrower
             var hw = (int)MathF.Round(env.HalfWidth[z] * widthFactor * size);
             if (hw < 1) continue;
 
-            // Leave a one-voxel frame at the fore/aft ends of the canopy band.
-            var isFrameSlice = Math.Abs(dz) == halfLength;
+            // Frame thickness follows the detail unit, so the canopy surround stays a visible
+            // border rather than thinning to a single voxel as resolution rises.
+            var isFrameSlice = Math.Abs(dz) > halfLength - detail;
 
             for (var x = 0; x <= hw; x++)
             {
-                var topY = TopFilledY(grid, x, z, searchTop);
+                var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
 
-                var isFrame = x == hw || isFrameSlice;
+                var isFrame = x > hw - detail || isFrameSlice;
                 grid.SetMirrored(x, topY.Value, z, isFrame ? VoxelMaterial.HullDark : VoxelMaterial.Cockpit);
             }
         }
@@ -533,21 +557,22 @@ public static class VoxelShipGrower
     /// it follows terraces, wing roots and towers instead of floating over them.</summary>
     private static void DetailPass(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int maxHW, int maxHH)
     {
-        var searchTop = maxHH * 8;
+        var detail = DetailUnit(len);
 
-        PaintPanelSeams(grid, env, len, searchTop);
-        PaintAccentStripes(grid, p, env, len, maxHH, searchTop);
-        PaintWindows(grid, env, len);
+        PaintPanelSeams(grid, env, len, detail);
+        PaintAccentStripes(grid, p, env, len, maxHH, detail);
+        PaintWindows(grid, env, len, detail);
 
         if (!p.Greebles) return;
 
-        AddRaisedPlates(grid, rng, p, env, len, searchTop);
-        CarveRecesses(grid, rng, p, env, len, searchTop);
+        AddRaisedPlates(grid, rng, p, env, len, detail);
+        CarveRecesses(grid, rng, p, env, len, detail);
     }
 
     /// <summary>Dark seams every few slices across the top deck, plus a continuous seam down the
-    /// chamfer line where the flat deck meets the flank.</summary>
-    private static void PaintPanelSeams(VoxelGrid grid, Envelope env, int len, int searchTop)
+    /// chamfer line where the flat deck meets the flank. Seam width scales with the detail unit,
+    /// so a seam stays a visible groove instead of thinning to a hairline as resolution rises.</summary>
+    private static void PaintPanelSeams(VoxelGrid grid, Envelope env, int len, int detail)
     {
         var spacing = Math.Max(4, len / 9);
 
@@ -556,14 +581,15 @@ public static class VoxelShipGrower
             var hw = env.HalfWidth[z];
             if (hw < 1) continue;
 
-            var lateralSeam = z % spacing == 0;
+            var lateralSeam = z % spacing < detail;
             var chamferX = (int)MathF.Round(hw * DeckFlatFraction);
 
             for (var x = 0; x <= hw; x++)
             {
-                if (!lateralSeam && x != chamferX) continue;
+                var onChamfer = x >= chamferX && x < chamferX + detail;
+                if (!lateralSeam && !onChamfer) continue;
 
-                var topY = TopFilledY(grid, x, z, searchTop);
+                var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
                 grid.SetMirrored(x, topY.Value, z, VoxelMaterial.HullDark);
             }
@@ -573,7 +599,7 @@ public static class VoxelShipGrower
     /// <summary>Longitudinal squadron stripes: one along each upper flank, a chevron across the
     /// bow, and a band over the wings. These are the strongest readability cue at a glance, so
     /// the flank stripe runs the full length rather than being broken up.</summary>
-    private static void PaintAccentStripes(VoxelGrid grid, ShipParameters p, Envelope env, int len, int maxHH, int searchTop)
+    private static void PaintAccentStripes(VoxelGrid grid, ShipParameters p, Envelope env, int len, int maxHH, int detail)
     {
         var noseEnd = (int)MathF.Round(len * 0.22f);
 
@@ -582,20 +608,23 @@ public static class VoxelShipGrower
             var hw = env.HalfWidth[z];
             if (hw < 1) continue;
 
-            // Flank stripe: the outermost filled voxel at roughly shoulder height. Searching only
-            // out to the hull's own half-width keeps the stripe on the fuselage instead of
-            // jumping to a wingtip wherever a wing happens to cross this slice.
+            // Flank stripe: the outermost filled voxel at roughly shoulder height, `detail` rows
+            // tall. Searching only out to the hull's own half-width keeps the stripe on the
+            // fuselage instead of jumping to a wingtip wherever a wing crosses this slice.
             var stripeY = (int)MathF.Round(env.Top[z] * 0.35f);
-            var sideX = SideFilledX(grid, stripeY, z, hw + 1);
-            if (sideX is not null && IsPlating(grid, sideX.Value, stripeY, z))
-                grid.SetMirrored(sideX.Value, stripeY, z, VoxelMaterial.Accent);
+            for (var dy = 0; dy < detail; dy++)
+            {
+                var sideX = SideFilledX(grid, stripeY + dy, z, hw + 1);
+                if (sideX is not null && IsPlating(grid, sideX.Value, stripeY + dy, z))
+                    grid.SetMirrored(sideX.Value, stripeY + dy, z, VoxelMaterial.Accent);
+            }
 
             // Nose chevron: a few thin lateral accent bands across the top of the bow.
-            if (z >= noseEnd || z % 6 != 0) continue;
+            if (z >= noseEnd || z % (6 * detail) >= detail) continue;
 
             for (var x = 0; x <= hw; x++)
             {
-                var topY = TopFilledY(grid, x, z, searchTop);
+                var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
                 grid.SetMirrored(x, topY.Value, z, VoxelMaterial.Accent);
             }
@@ -607,15 +636,16 @@ public static class VoxelShipGrower
         var span = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
         var wingRootZ = Math.Clamp((int)MathF.Round(0.56f * (len - 1)), 0, len - 1);
         var wingRootX = env.HalfWidth[wingRootZ];
+        var band = Math.Max(2, detail * 2);
 
         for (var offset = span / 3; offset <= span; offset++)
         {
-            if (offset % 4 >= 2) continue;
+            if (offset % (band * 2) >= band) continue;
 
             for (var z = 0; z < len; z++)
             {
                 var x = wingRootX + offset;
-                var topY = TopFilledY(grid, x, z, searchTop);
+                var topY = TopFilledY(grid, x, z);
                 if (topY is null || topY.Value > maxHH) continue;
                 if (!IsPlating(grid, x, topY.Value, z)) continue;
                 grid.SetMirrored(x, topY.Value, z, VoxelMaterial.Accent);
@@ -626,7 +656,7 @@ public static class VoxelShipGrower
     /// <summary>Rows of lit ports down each flank. Deliberately sparse and evenly spaced: windows
     /// are a scale cue, and scattering them densely reads as noise rather than as decks. The
     /// search is capped at the hull half-width so ports land on the fuselage, not on wingtips.</summary>
-    private static void PaintWindows(VoxelGrid grid, Envelope env, int len)
+    private static void PaintWindows(VoxelGrid grid, Envelope env, int len, int detail)
     {
         var spacing = Math.Max(4, len / 8);
 
@@ -637,25 +667,38 @@ public static class VoxelShipGrower
             var hw = env.HalfWidth[z];
             if (hw < 2) continue;
 
-            // Two rows at different deck heights, so tall hulls look multi-decked.
+            // Two rows at different deck heights, so tall hulls look multi-decked. Each port is a
+            // detail-sized patch rather than a single voxel, so ports stay legible as windows.
             for (var row = 0; row < 2; row++)
             {
-                var y = (int)MathF.Round(env.Top[z] * (row == 0 ? 0.55f : 0.15f));
-                var sideX = SideFilledX(grid, y, z, hw + 1);
-                if (sideX is null || !IsPlating(grid, sideX.Value, y, z)) continue;
-                grid.SetMirrored(sideX.Value, y, z, VoxelMaterial.Window);
+                var y0 = (int)MathF.Round(env.Top[z] * (row == 0 ? 0.55f : 0.15f));
+
+                for (var dz = 0; dz < detail; dz++)
+                    for (var dy = 0; dy < detail; dy++)
+                    {
+                        var y = y0 + dy;
+                        var zz = z + dz;
+                        if (zz >= len) continue;
+
+                        var sideX = SideFilledX(grid, y, zz, env.HalfWidth[zz] + 1);
+                        if (sideX is null || !IsPlating(grid, sideX.Value, y, zz)) continue;
+                        grid.SetMirrored(sideX.Value, y, zz, VoxelMaterial.Window);
+                    }
             }
         }
     }
 
-    private static void AddRaisedPlates(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int searchTop)
+    /// <summary>Scatters raised plates on the deck. Plate footprint *and* height scale with the
+    /// detail unit, so higher resolution yields the same reading of chunky plating at a finer
+    /// grain rather than a rash of one-voxel pimples.</summary>
+    private static void AddRaisedPlates(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int detail)
     {
-        var count = (int)MathF.Round(p.GreebleDensity * len * 0.7f);
+        var count = (int)MathF.Round(p.GreebleDensity * len * 0.7f / detail);
 
         for (var i = 0; i < count; i++)
         {
             var z0 = rng.Next(2, Math.Max(3, len - 2));
-            var lengthZ = rng.Next(2, 6);
+            var lengthZ = rng.Next(2, 6) * detail;
             var hw = env.HalfWidth[Math.Clamp(z0, 0, len - 1)];
             if (hw < 2) continue;
 
@@ -665,23 +708,24 @@ public static class VoxelShipGrower
             for (var z = z0; z < Math.Min(z0 + lengthZ, len); z++)
                 for (var x = x0; x <= Math.Min(x0 + widthX, hw); x++)
                 {
-                    var topY = TopFilledY(grid, x, z, searchTop);
+                    var topY = TopFilledY(grid, x, z);
                     if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
-                    grid.SetMirrored(x, topY.Value + 1, z, VoxelMaterial.Panel);
+                    for (var dy = 1; dy <= detail; dy++)
+                        grid.SetMirrored(x, topY.Value + dy, z, VoxelMaterial.Panel);
                 }
         }
     }
 
     /// <summary>Cuts shallow pockets into the deck and darkens their floor. Recesses matter as
     /// much as raised plates: they add self-shadowing, which is what sells the surface as machined.</summary>
-    private static void CarveRecesses(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int searchTop)
+    private static void CarveRecesses(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int detail)
     {
-        var count = (int)MathF.Round(p.GreebleDensity * len * 0.5f);
+        var count = (int)MathF.Round(p.GreebleDensity * len * 0.5f / detail);
 
         for (var i = 0; i < count; i++)
         {
             var z0 = rng.Next(2, Math.Max(3, len - 2));
-            var lengthZ = rng.Next(2, 5);
+            var lengthZ = rng.Next(2, 5) * detail;
             var hw = env.HalfWidth[Math.Clamp(z0, 0, len - 1)];
             if (hw < 3) continue;
 
@@ -691,24 +735,33 @@ public static class VoxelShipGrower
             for (var z = z0; z < Math.Min(z0 + lengthZ, len); z++)
                 for (var x = x0; x <= Math.Min(x0 + widthX, hw); x++)
                 {
-                    var topY = TopFilledY(grid, x, z, searchTop);
-                    if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
+                    // Cut `detail` voxels deep so the pocket keeps a visible lip at any resolution.
+                    for (var step = 0; step < detail; step++)
+                    {
+                        var topY = TopFilledY(grid, x, z);
+                        if (topY is null || !IsPlating(grid, x, topY.Value, z)) break;
 
-                    grid.Remove(x, topY.Value, z);
-                    grid.Remove(-x, topY.Value, z);
+                        grid.Remove(x, topY.Value, z);
+                        grid.Remove(-x, topY.Value, z);
+                    }
 
-                    if (IsPlating(grid, x, topY.Value - 1, z))
-                        grid.SetMirrored(x, topY.Value - 1, z, VoxelMaterial.HullDark);
+                    var floorY = TopFilledY(grid, x, z);
+                    if (floorY is not null && IsPlating(grid, x, floorY.Value, z))
+                        grid.SetMirrored(x, floorY.Value, z, VoxelMaterial.HullDark);
                 }
         }
     }
 
     // ---- Surface queries ----------------------------------------------------------------
 
-    /// <summary>Topmost filled voxel in a column, or null if the column is empty.</summary>
-    private static int? TopFilledY(VoxelGrid grid, int x, int z, int searchTop)
+    /// <summary>Topmost filled voxel in a column, or null if the column is empty. Scans from the
+    /// grid's tracked upper bound rather than a guessed range, which keeps these queries cheap as
+    /// the resolution (and so the number of them) rises.</summary>
+    private static int? TopFilledY(VoxelGrid grid, int x, int z)
     {
-        for (var y = searchTop; y >= -searchTop; y--)
+        if (grid.IsEmpty) return null;
+
+        for (var y = grid.MaxY; y >= grid.MinY; y--)
             if (grid.IsFilled(x, y, z))
                 return y;
         return null;
