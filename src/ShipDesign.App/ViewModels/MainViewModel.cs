@@ -43,6 +43,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     };
 
     public HullClass HullClass { get => _parameters.HullClass; set { _parameters.HullClass = value; OnPropertyChanged(); Rebuild(); } }
+    public int HullCount { get => _parameters.HullCount; set { _parameters.HullCount = value; OnPropertyChanged(); Rebuild(); } }
+    public float HullSpacing { get => _parameters.HullSpacing; set { _parameters.HullSpacing = value; OnPropertyChanged(); Rebuild(); } }
     public float Length { get => _parameters.Length; set { _parameters.Length = value; OnPropertyChanged(); Rebuild(); } }
     public float Beam { get => _parameters.Beam; set { _parameters.Beam = value; OnPropertyChanged(); Rebuild(); } }
     public float Taper { get => _parameters.Taper; set { _parameters.Taper = value; OnPropertyChanged(); Rebuild(); } }
@@ -131,6 +133,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void Randomize()
     {
         _parameters.HullClass = HullClasses[_random.Next(HullClasses.Count)];
+        // Single hull most of the time: catamarans and trimarans are a distinctive silhouette,
+        // and making them as common as the conventional layout would dilute that.
+        _parameters.HullCount = _random.NextDouble() switch { < 0.65 => 1, < 0.85 => 2, _ => 3 };
+        _parameters.HullSpacing = 0.6f + (float)_random.NextDouble() * 1.1f;
         _parameters.Length = 6f + (float)_random.NextDouble() * 30f;
         _parameters.Beam = 1f + (float)_random.NextDouble() * 7f;
         _parameters.Taper = (float)_random.NextDouble();

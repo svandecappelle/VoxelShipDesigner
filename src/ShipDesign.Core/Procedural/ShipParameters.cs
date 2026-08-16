@@ -5,6 +5,16 @@ namespace ShipDesign.Core.Procedural;
 public sealed class ShipParameters
 {
     public HullClass HullClass { get; set; } = HullClass.Fighter;
+
+    /// <summary>Number of parallel hulls: 1 is a conventional single hull, 2 a catamaran (two
+    /// full-size hulls either side of the centreline), 3 a trimaran (a full-size centre hull with
+    /// a smaller outrigger each side). Multi-hull ships are joined by lateral spars.</summary>
+    public int HullCount { get; set; } = 1;
+
+    /// <summary>Multiplier on the lateral gap between hulls. Only meaningful when
+    /// <see cref="HullCount"/> is above 1.</summary>
+    public float HullSpacing { get; set; } = 1f;
+
     public float Length { get; set; } = 14f;
     public float Beam { get; set; } = 3.2f;
     public float Taper { get; set; } = 0.5f;

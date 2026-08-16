@@ -94,6 +94,18 @@
                                 </StackPanel>
 
                                 <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Nombre de coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullCount}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="3" Value="{Binding HullCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Écartement des coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullSpacing, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="2.5" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Longueur" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Length, StringFormat='{}{0:0.0} M'}" />
                                 </Grid>

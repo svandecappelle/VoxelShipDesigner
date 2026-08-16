@@ -44,6 +44,39 @@ public static class VoxelShipGrower
     /// seeds differ in *where* things sit, not just in the hull outline.</summary>
     private sealed record Layout(float WingCenter, float TowerCenter, float NacelleCenter, float TurretSpread);
 
+    /// <summary>One parallel hull: where its centreline sits in X, and how large it is relative to
+    /// the shared envelope. <paramref name="Scale"/> below 1 makes an outrigger.</summary>
+    private sealed record HullColumn(int XOffset, float Scale);
+
+    /// <summary>
+    /// Where the parallel hulls sit. Only offsets at or right of the centreline are listed:
+    /// every fill goes through <see cref="VoxelGrid.SetMirrored"/>, so the port side comes for
+    /// free and the ship cannot come out asymmetric. That is why a catamaran is a single entry
+    /// at +d rather than a pair at ±d -- listing both would build each hull twice.
+    ///
+    /// The first entry is the primary hull: it carries the deck terraces, bridge tower, canopy and
+    /// turrets, and it is the hull the shared envelope arrays describe.
+    /// </summary>
+    private static IReadOnlyList<HullColumn> HullLayout(ShipParameters p, int maxHalfWidth)
+    {
+        var count = Math.Clamp(p.HullCount, 1, 3);
+        if (count == 1)
+            return new[] { new HullColumn(0, 1f) };
+
+        var gap = Math.Max(1, (int)MathF.Round(maxHalfWidth * 0.8f * Math.Max(0.1f, p.HullSpacing)));
+
+        if (count == 2)
+            return new[] { new HullColumn(maxHalfWidth + gap, 1f) };
+
+        const float outriggerScale = 0.62f;
+        var outriggerHalfWidth = Math.Max(1, (int)MathF.Round(maxHalfWidth * outriggerScale));
+        return new[]
+        {
+            new HullColumn(0, 1f),
+            new HullColumn(maxHalfWidth + gap + outriggerHalfWidth, outriggerScale),
+        };
+    }
+
     /// <summary>
     /// A sum of a few random low-frequency sine waves. This is what actually carries the
     /// seed-to-seed silhouette difference: per-step walk noise gets averaged away by the
@@ -93,27 +126,38 @@ public static class VoxelShipGrower
             NacelleCenter: 0.60f + Noise(rng, 0.07f),
             TurretSpread: 0.6f + Noise(rng, 0.15f));
 
-        FillHull(grid, env, lengthVoxels);
-        AddDeckTerraces(grid, env, p, lengthVoxels);
+        var hulls = HullLayout(p, maxHalfWidth);
+        var primary = hulls[0];
+
+        FillHull(grid, env, hulls, lengthVoxels);
+        AddDeckTerraces(grid, env, p, primary, lengthVoxels);
+
+        // Spars must go in before anything else reads the surface: without them the hulls are
+        // separate solids, and the ship would export as two or three unconnected pieces.
+        // The test is "is any hull off the centreline", not "is there more than one entry" -- a
+        // catamaran is a single entry at +d whose mirror is the second hull, so counting entries
+        // would skip the one layout that most needs joining.
+        if (hulls.Any(h => h.XOffset != 0))
+            GrowHullBridges(grid, env, hulls, lengthVoxels);
 
         if (p.WingStyle != WingStyle.None)
-            GrowWings(grid, p, env, layout, lengthVoxels, maxHalfHeight);
+            GrowWings(grid, p, env, hulls, layout, lengthVoxels, maxHalfHeight);
 
         if (p.Nacelles)
-            GrowNacelles(grid, p, env, layout, lengthVoxels, maxHalfHeight);
+            GrowNacelles(grid, p, env, hulls, layout, lengthVoxels, maxHalfHeight);
 
         if (p.Superstructure && p.HullClass != HullClass.Fighter)
-            GrowSuperstructure(grid, p, env, layout, lengthVoxels, maxHalfHeight);
+            GrowSuperstructure(grid, p, env, primary, layout, lengthVoxels, maxHalfHeight);
 
         if (p.TurretCount > 0)
-            GrowTurrets(grid, p, env, layout, lengthVoxels);
+            GrowTurrets(grid, p, env, primary, layout, lengthVoxels);
 
-        GrowEngines(grid, p, env, lengthVoxels, maxHalfWidth, maxHalfHeight);
+        GrowEngines(grid, p, env, hulls, lengthVoxels, maxHalfHeight);
 
         if (p.CockpitStyle != CockpitStyle.None)
-            CarveCockpit(grid, p, preset, env, lengthVoxels, maxHalfHeight);
+            CarveCockpit(grid, p, preset, env, primary, lengthVoxels);
 
-        DetailPass(grid, rng, p, env, lengthVoxels, maxHalfWidth, maxHalfHeight);
+        DetailPass(grid, rng, p, env, hulls, lengthVoxels, maxHalfHeight);
 
         return grid;
     }
@@ -217,20 +261,70 @@ public static class VoxelShipGrower
     /// <summary>Fills each z-slice as a flat-decked trapezoid: full height across the middle,
     /// chamfering down toward the flanks. This is the single biggest difference from a plain
     /// box extrusion -- it gives every ship a hard-SF chamfered hull profile.</summary>
-    private static void FillHull(VoxelGrid grid, Envelope env, int len)
+    private static void FillHull(VoxelGrid grid, Envelope env, IReadOnlyList<HullColumn> hulls, int len)
     {
-        for (var z = 0; z < len; z++)
+        foreach (var hull in hulls)
         {
-            var hw = env.HalfWidth[z];
-            if (hw < 0) continue;
-
-            for (var x = 0; x <= hw; x++)
+            for (var z = 0; z < len; z++)
             {
-                var shoulder = Shoulder(x, hw);
-                var yTop = (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
-                var yBottom = (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
-                for (var y = -yBottom; y <= yTop; y++)
-                    grid.SetMirrored(x, y, z, VoxelMaterial.Hull);
+                var hw = HalfWidthOf(env, hull, z);
+                if (hw < 0) continue;
+
+                // Sweep the full width of this hull rather than 0..hw: an offset hull is not
+                // centred on x=0, so its port flank is a distinct set of columns. The mirror
+                // then reproduces the whole hull on the other side of the ship.
+                for (var dx = -hw; dx <= hw; dx++)
+                {
+                    var shoulder = Shoulder(Math.Abs(dx), hw);
+                    var yTop = (int)MathF.Round(env.Top[z] * hull.Scale * (1f - shoulder * 0.62f));
+                    var yBottom = (int)MathF.Round(env.Bottom[z] * hull.Scale * (1f - shoulder * 0.55f));
+                    for (var y = -yBottom; y <= yTop; y++)
+                        grid.SetMirrored(hull.XOffset + dx, y, z, VoxelMaterial.Hull);
+                }
+            }
+        }
+    }
+
+    private static int HalfWidthOf(Envelope env, HullColumn hull, int z) =>
+        (int)MathF.Round(env.HalfWidth[z] * hull.Scale);
+
+    /// <summary>Outermost filled X the hulls reach at this slice -- where wings and nacelle pylons
+    /// have to start so they spring from the outboard hull rather than from inside it.</summary>
+    private static int OuterEdge(Envelope env, IReadOnlyList<HullColumn> hulls, int z)
+    {
+        var edge = 0;
+        foreach (var hull in hulls)
+            edge = Math.Max(edge, hull.XOffset + HalfWidthOf(env, hull, z));
+        return edge;
+    }
+
+    /// <summary>Lateral spars tying the hulls together. Without them a multi-hull ship is several
+    /// separate solids that merely look joined, and exports as disconnected pieces.</summary>
+    private static void GrowHullBridges(VoxelGrid grid, Envelope env, IReadOnlyList<HullColumn> hulls, int len)
+    {
+        var detail = DetailUnit(len);
+        var outerOffset = hulls[^1].XOffset;
+        var spars = 3;
+
+        for (var i = 0; i < spars; i++)
+        {
+            var z = (int)MathF.Round((0.28f + i * 0.22f) * (len - 1));
+            if (z < 0 || z >= len) continue;
+
+            var halfDepth = Math.Max(1, detail * 2);
+            var halfHeight = Math.Max(1, (int)MathF.Round(env.Top[z] * 0.3f));
+
+            for (var dz = -halfDepth; dz <= halfDepth; dz++)
+            {
+                var zz = z + dz;
+                if (zz < 0 || zz >= len) continue;
+
+                // Span from the centreline out to the outboard hull. For a catamaran that beam
+                // crosses x=0 and joins the two hulls; for a trimaran it ties each outrigger to
+                // the centre hull. Either way the mirror completes the other side.
+                for (var x = 0; x <= outerOffset; x++)
+                    for (var y = -halfHeight; y <= halfHeight; y++)
+                        grid.SetMirrored(x, y, zz, VoxelMaterial.HullDark);
             }
         }
     }
@@ -246,7 +340,7 @@ public static class VoxelShipGrower
     /// <summary>Stacks progressively narrower, shorter slabs on the spine -- the terraced
     /// step-down silhouette that makes a voxel hull read as a layered capital ship instead of a
     /// single extruded block. Updates Top[] so later passes sit on the new surface.</summary>
-    private static void AddDeckTerraces(VoxelGrid grid, Envelope env, ShipParameters p, int len)
+    private static void AddDeckTerraces(VoxelGrid grid, Envelope env, ShipParameters p, HullColumn primary, int len)
     {
         var decks = Math.Clamp(p.Decks, 1, 5);
         var maxTop = env.Top.Max();
@@ -262,12 +356,16 @@ public static class VoxelShipGrower
 
             for (var z = z0; z <= z1 && z < len; z++)
             {
-                var hw = (int)MathF.Round(env.HalfWidth[z] * widthFraction);
+                var hw = (int)MathF.Round(HalfWidthOf(env, primary, z) * widthFraction);
                 if (hw < 1) continue;
 
-                for (var x = 0; x <= hw; x++)
+                // Terraces are built on the primary hull only, which is also the hull Top[]
+                // tracks. Stepping outriggers as well would desynchronise the shared envelope
+                // from every hull it is supposed to describe.
+                for (var dx = -hw; dx <= hw; dx++)
                 {
-                    var shoulder = Shoulder(x, hw);
+                    var x = primary.XOffset + dx;
+                    var shoulder = Shoulder(Math.Abs(dx), hw);
                     var slabTop = Math.Max(1, height - (int)MathF.Round(shoulder * height * 0.5f));
 
                     // Fill from the column's real surface up to the target height rather than from
@@ -289,7 +387,7 @@ public static class VoxelShipGrower
 
     /// <summary>Wings with a real airfoil-ish section: thickness falls off toward the tip *and*
     /// toward the leading/trailing edges, so the profile is a chamfered blade rather than a slab.</summary>
-    private static void GrowWings(VoxelGrid grid, ShipParameters p, Envelope env, Layout layout, int len, int maxHH)
+    private static void GrowWings(VoxelGrid grid, ShipParameters p, Envelope env, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
     {
         var span = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
         var sweep = MathF.Tan(Math.Clamp(p.WingSweepDegrees, 0f, 70f) * MathF.PI / 180f);
@@ -305,7 +403,10 @@ public static class VoxelShipGrower
         var centerZ = (int)MathF.Round(rootCenter * (len - 1));
         var rootChord = Math.Max(2, (int)MathF.Round(len * chordFraction * 0.5f));
         var thick0 = Math.Max(1, (int)MathF.Round(thicknessBase));
-        var rootHalfWidth = env.HalfWidth[Math.Clamp(centerZ, 0, len - 1)];
+
+        // Spring the wing from the outboard hull's flank, not from the centreline hull's, or on a
+        // multi-hull ship the wing root would start buried inside the outrigger.
+        var rootHalfWidth = OuterEdge(env, hulls, Math.Clamp(centerZ, 0, len - 1));
 
         for (var offset = 0; offset <= span; offset++)
         {
@@ -341,12 +442,14 @@ public static class VoxelShipGrower
         }
     }
 
-    private static void GrowNacelles(VoxelGrid grid, ShipParameters p, Envelope env, Layout layout, int len, int maxHH)
+    private static void GrowNacelles(VoxelGrid grid, ShipParameters p, Envelope env, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
     {
         var radius = Math.Max(2, (int)MathF.Round(maxHH * 0.75f * p.NacelleWidth));
         var halfLength = Math.Max(4, (int)MathF.Round(len * 0.2f * p.NacelleLength));
         var centerZ = (int)MathF.Round(Math.Clamp(layout.NacelleCenter, 0.35f, 0.8f) * (len - 1));
-        var hullHalfWidth = env.HalfWidth[Math.Clamp(centerZ, 0, len - 1)];
+
+        // Hang the pod off the outboard hull so its pylon has something to attach to.
+        var hullHalfWidth = OuterEdge(env, hulls, Math.Clamp(centerZ, 0, len - 1));
 
         // Clearance between hull flank and pod, scaled off the hull's own height so the gap stays
         // proportionally the same at any voxel resolution rather than shrinking as voxels get finer.
@@ -386,7 +489,7 @@ public static class VoxelShipGrower
 
     /// <summary>A stepped command tower topped by a thin antenna mast. The mast is what gives the
     /// silhouette a recognizable "bridge" read from a distance, so it is deliberately tall and thin.</summary>
-    private static void GrowSuperstructure(VoxelGrid grid, ShipParameters p, Envelope env, Layout layout, int len, int maxHH)
+    private static void GrowSuperstructure(VoxelGrid grid, ShipParameters p, Envelope env, HullColumn primary, Layout layout, int len, int maxHH)
     {
         var centerZ = Math.Clamp((int)MathF.Round(Math.Clamp(layout.TowerCenter, 0.25f, 0.7f) * (len - 1)), 0, len - 1);
         var scale = Math.Max(0.4f, p.SuperstructureSize);
@@ -394,7 +497,7 @@ public static class VoxelShipGrower
 
         for (var tier = 0; tier < 3; tier++)
         {
-            var halfWidth = Math.Max(1, (int)MathF.Round(env.HalfWidth[centerZ] * (0.55f - tier * 0.13f) * scale));
+            var halfWidth = Math.Max(1, (int)MathF.Round(HalfWidthOf(env, primary, centerZ) * (0.55f - tier * 0.13f) * scale));
             var halfLength = Math.Max(1, (int)MathF.Round(len * (0.09f - tier * 0.02f) * scale));
             var height = Math.Max(1, (int)MathF.Round(maxHH * (0.45f - tier * 0.08f) * scale));
 
@@ -402,9 +505,9 @@ public static class VoxelShipGrower
             {
                 var z = centerZ + dz;
                 if (z < 0 || z >= len) continue;
-                for (var x = 0; x <= halfWidth; x++)
+                for (var dx = -halfWidth; dx <= halfWidth; dx++)
                     for (var dy = 1; dy <= height; dy++)
-                        grid.SetMirrored(x, y + dy, z, tier == 1 ? VoxelMaterial.Panel : VoxelMaterial.Hull);
+                        grid.SetMirrored(primary.XOffset + dx, y + dy, z, tier == 1 ? VoxelMaterial.Panel : VoxelMaterial.Hull);
             }
 
             y += height;
@@ -417,17 +520,18 @@ public static class VoxelShipGrower
         var mastHeight = Math.Max(4, (int)MathF.Round(maxHH * 2.2f * scale));
 
         for (var dy = 1; dy <= mastHeight; dy++)
-            for (var x = 0; x <= mastHalf; x++)
+            for (var dx = -mastHalf; dx <= mastHalf; dx++)
                 for (var dz = -mastHalf; dz <= mastHalf; dz++)
-                    grid.SetMirrored(x, y + dy, centerZ + dz, VoxelMaterial.HullDark);
+                    grid.SetMirrored(primary.XOffset + dx, y + dy, centerZ + dz, VoxelMaterial.HullDark);
 
         // A short crossbar near the top -- reads as a sensor array and breaks the bare spike.
         var barY = y + (int)MathF.Round(mastHeight * 0.7f);
-        for (var x = 0; x <= Math.Max(1, detail * 2); x++)
-            grid.SetMirrored(x, barY, centerZ, VoxelMaterial.HullDark);
+        var barHalf = Math.Max(1, detail * 2);
+        for (var dx = -barHalf; dx <= barHalf; dx++)
+            grid.SetMirrored(primary.XOffset + dx, barY, centerZ, VoxelMaterial.HullDark);
     }
 
-    private static void GrowTurrets(VoxelGrid grid, ShipParameters p, Envelope env, Layout layout, int len)
+    private static void GrowTurrets(VoxelGrid grid, ShipParameters p, Envelope env, HullColumn primary, Layout layout, int len)
     {
         var spread = Math.Clamp(layout.TurretSpread, 0.4f, 0.75f);
         var detail = DetailUnit(len);
@@ -438,10 +542,10 @@ public static class VoxelShipGrower
         {
             var t = (i + 0.5f) / p.TurretCount;
             var z = Math.Clamp((int)MathF.Round((0.2f + t * spread) * (len - 1)), baseRadius + 1, len - baseRadius - 2);
-            var hw = env.HalfWidth[z];
+            var hw = HalfWidthOf(env, primary, z);
             if (hw < 2) continue;
 
-            var x = Math.Max(1, (int)MathF.Round(hw * 0.55f));
+            var x = primary.XOffset + Math.Max(1, (int)MathF.Round(hw * 0.55f));
             var onTop = i % 2 == 0;
             var dir = onTop ? 1 : -1;
 
@@ -474,13 +578,21 @@ public static class VoxelShipGrower
     /// <summary>Engine block: recessed dark housings at the stern with a stepped, shrinking
     /// exhaust plume behind each one. The plume extends past the hull so the glow is visible in
     /// silhouette rather than buried inside the tail.</summary>
-    private static void GrowEngines(VoxelGrid grid, ShipParameters p, Envelope env, int len, int maxHW, int maxHH)
+    private static void GrowEngines(VoxelGrid grid, ShipParameters p, Envelope env, IReadOnlyList<HullColumn> hulls, int len, int maxHH)
+    {
+        // Every hull gets its own engine block: an outrigger trailing no exhaust reads as dead
+        // weight bolted to the side rather than as part of the ship's propulsion.
+        foreach (var hull in hulls)
+            GrowEnginesOnHull(grid, p, env, hull, len, maxHH);
+    }
+
+    private static void GrowEnginesOnHull(VoxelGrid grid, ShipParameters p, Envelope env, HullColumn hull, int len, int maxHH)
     {
         var tailZ = len - 1;
-        var tailHalfWidth = Math.Max(2, env.HalfWidth[tailZ]);
-        var tailTop = Math.Max(1, env.Top[tailZ]);
+        var tailHalfWidth = Math.Max(2, HalfWidthOf(env, hull, tailZ));
+        var tailTop = Math.Max(1, (int)MathF.Round(env.Top[tailZ] * hull.Scale));
         var count = Math.Max(1, p.EngineCount);
-        var radius = Math.Max(2, (int)MathF.Round(MathF.Min(tailHalfWidth, maxHH) * (count <= 2 ? 0.85f : 0.6f)));
+        var radius = Math.Max(2, (int)MathF.Round(MathF.Min(tailHalfWidth, maxHH * hull.Scale) * (count <= 2 ? 0.85f : 0.6f)));
 
         var positions = new List<(int X, int Y)>();
         if (count == 1)
@@ -519,7 +631,7 @@ public static class VoxelShipGrower
                         if (d2 > radius * radius + radius) continue;
                         // Ring engines are hollow: only the outer shell is solid.
                         if (p.EngineStyle == EngineStyle.Ring && d2 < (radius - 1) * (radius - 1)) continue;
-                        grid.Set(ex + dx, ey + dy, z, VoxelMaterial.HullDark);
+                        grid.SetMirrored(hull.XOffset + ex + dx, ey + dy, z, VoxelMaterial.HullDark);
                     }
             }
 
@@ -533,7 +645,7 @@ public static class VoxelShipGrower
                     for (var dy = -r; dy <= r; dy++)
                     {
                         if (dx * dx + dy * dy > r * r + r) continue;
-                        grid.Set(ex + dx, ey + dy, tailZ + dz, VoxelMaterial.Glow);
+                        grid.SetMirrored(hull.XOffset + ex + dx, ey + dy, tailZ + dz, VoxelMaterial.Glow);
                     }
             }
         }
@@ -541,7 +653,7 @@ public static class VoxelShipGrower
 
     /// <summary>Sets a canopy into the nose deck: the glass sits inside a darker frame, which is
     /// what makes it read as a cockpit rather than as a colored patch on the plating.</summary>
-    private static void CarveCockpit(VoxelGrid grid, ShipParameters p, HullClassPreset preset, Envelope env, int len, int maxHH)
+    private static void CarveCockpit(VoxelGrid grid, ShipParameters p, HullClassPreset preset, Envelope env, HullColumn primary, int len)
     {
         var size = Math.Max(0.4f, p.CockpitSize);
         var centerZ = Math.Clamp((int)MathF.Round(preset.NoseFraction * 1.15f * (len - 1)), 2, len - 3);
@@ -554,19 +666,20 @@ public static class VoxelShipGrower
             if (z < 0 || z >= len) continue;
 
             var widthFactor = p.CockpitStyle == CockpitStyle.FlatCanopy ? 0.7f : 0.55f;
-            var hw = (int)MathF.Round(env.HalfWidth[z] * widthFactor * size);
+            var hw = (int)MathF.Round(HalfWidthOf(env, primary, z) * widthFactor * size);
             if (hw < 1) continue;
 
             // Frame thickness follows the detail unit, so the canopy surround stays a visible
             // border rather than thinning to a single voxel as resolution rises.
             var isFrameSlice = Math.Abs(dz) > halfLength - detail;
 
-            for (var x = 0; x <= hw; x++)
+            for (var dx = -hw; dx <= hw; dx++)
             {
+                var x = primary.XOffset + dx;
                 var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
 
-                var isFrame = x > hw - detail || isFrameSlice;
+                var isFrame = Math.Abs(dx) > hw - detail || isFrameSlice;
                 grid.SetMirrored(x, topY.Value, z, isFrame ? VoxelMaterial.HullDark : VoxelMaterial.Cockpit);
             }
         }
@@ -578,40 +691,51 @@ public static class VoxelShipGrower
     /// lateral panel seams, longitudinal accent stripes, lit ports along the flanks, and randomly
     /// scattered raised plates and recessed pockets. All of it queries the real voxel surface, so
     /// it follows terraces, wing roots and towers instead of floating over them.</summary>
-    private static void DetailPass(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int maxHW, int maxHH)
+    private static void DetailPass(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, IReadOnlyList<HullColumn> hulls, int len, int maxHH)
     {
         var detail = DetailUnit(len);
 
-        PaintPanelSeams(grid, env, len, detail);
-        PaintAccentStripes(grid, p, env, len, maxHH, detail);
-        PaintWindows(grid, env, len, detail);
+        // Decorate every hull, not just the primary one: an undecorated outrigger next to a
+        // plated, port-lit main hull reads as an unfinished block rather than as part of the ship.
+        foreach (var hull in hulls)
+        {
+            PaintPanelSeams(grid, env, hull, len, detail);
+            PaintWindows(grid, env, hull, len, detail);
 
-        if (!p.Greebles) return;
+            if (p.Greebles)
+            {
+                AddRaisedPlates(grid, rng, p, env, hull, len, detail);
+                CarveRecesses(grid, rng, p, env, hull, len, detail);
+            }
+        }
 
-        AddRaisedPlates(grid, rng, p, env, len, detail);
-        CarveRecesses(grid, rng, p, env, len, detail);
+        // Stripes run once over the whole ship: the wing band and bow chevron are ship-level
+        // markings, not per-hull ones.
+        PaintAccentStripes(grid, p, env, hulls, len, maxHH, detail);
     }
 
     /// <summary>Dark seams every few slices across the top deck, plus a continuous seam down the
     /// chamfer line where the flat deck meets the flank. Seam width scales with the detail unit,
     /// so a seam stays a visible groove instead of thinning to a hairline as resolution rises.</summary>
-    private static void PaintPanelSeams(VoxelGrid grid, Envelope env, int len, int detail)
+    private static void PaintPanelSeams(VoxelGrid grid, Envelope env, HullColumn hull, int len, int detail)
     {
         var spacing = Math.Max(4, len / 9);
 
         for (var z = 0; z < len; z++)
         {
-            var hw = env.HalfWidth[z];
+            var hw = HalfWidthOf(env, hull, z);
             if (hw < 1) continue;
 
             var lateralSeam = z % spacing < detail;
             var chamferX = (int)MathF.Round(hw * DeckFlatFraction);
 
-            for (var x = 0; x <= hw; x++)
+            for (var dx = -hw; dx <= hw; dx++)
             {
-                var onChamfer = x >= chamferX && x < chamferX + detail;
+                var absX = Math.Abs(dx);
+                var onChamfer = absX >= chamferX && absX < chamferX + detail;
                 if (!lateralSeam && !onChamfer) continue;
 
+                var x = hull.XOffset + dx;
                 var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
                 grid.SetMirrored(x, topY.Value, z, VoxelMaterial.HullDark);
@@ -622,31 +746,36 @@ public static class VoxelShipGrower
     /// <summary>Longitudinal squadron stripes: one along each upper flank, a chevron across the
     /// bow, and a band over the wings. These are the strongest readability cue at a glance, so
     /// the flank stripe runs the full length rather than being broken up.</summary>
-    private static void PaintAccentStripes(VoxelGrid grid, ShipParameters p, Envelope env, int len, int maxHH, int detail)
+    private static void PaintAccentStripes(VoxelGrid grid, ShipParameters p, Envelope env, IReadOnlyList<HullColumn> hulls, int len, int maxHH, int detail)
     {
         var noseEnd = (int)MathF.Round(len * 0.22f);
+        var outerHull = hulls[^1];
+        var primary = hulls[0];
 
         for (var z = 0; z < len; z++)
         {
-            var hw = env.HalfWidth[z];
-            if (hw < 1) continue;
-
-            // Flank stripe: the outermost filled voxel at roughly shoulder height, `detail` rows
-            // tall. Searching only out to the hull's own half-width keeps the stripe on the
-            // fuselage instead of jumping to a wingtip wherever a wing crosses this slice.
-            var stripeY = (int)MathF.Round(env.Top[z] * 0.35f);
-            for (var dy = 0; dy < detail; dy++)
+            // Flank stripe: run it down the ship's outboard flank -- on a multi-hull that is the
+            // outrigger's outer side, which is the flank actually seen in profile.
+            var outerHalfWidth = HalfWidthOf(env, outerHull, z);
+            if (outerHalfWidth >= 1)
             {
-                var sideX = SideFilledX(grid, stripeY + dy, z, hw + 1);
-                if (sideX is not null && IsPlating(grid, sideX.Value, stripeY + dy, z))
-                    grid.SetMirrored(sideX.Value, stripeY + dy, z, VoxelMaterial.Accent);
+                var stripeY = (int)MathF.Round(env.Top[z] * outerHull.Scale * 0.35f);
+                for (var dy = 0; dy < detail; dy++)
+                {
+                    var searchTo = outerHull.XOffset + outerHalfWidth + 1;
+                    var sideX = SideFilledX(grid, stripeY + dy, z, searchTo);
+                    if (sideX is not null && IsPlating(grid, sideX.Value, stripeY + dy, z))
+                        grid.SetMirrored(sideX.Value, stripeY + dy, z, VoxelMaterial.Accent);
+                }
             }
 
-            // Nose chevron: a few thin lateral accent bands across the top of the bow.
-            if (z >= noseEnd || z % (6 * detail) >= detail) continue;
+            // Nose chevron: a few thin lateral accent bands across the top of the primary bow.
+            var hw = HalfWidthOf(env, primary, z);
+            if (hw < 1 || z >= noseEnd || z % (6 * detail) >= detail) continue;
 
-            for (var x = 0; x <= hw; x++)
+            for (var dx = -hw; dx <= hw; dx++)
             {
+                var x = primary.XOffset + dx;
                 var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
                 grid.SetMirrored(x, topY.Value, z, VoxelMaterial.Accent);
@@ -660,7 +789,7 @@ public static class VoxelShipGrower
         // sparse accent, and striping half the span turns the wing blue instead of marking it.
         var span = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
         var wingRootZ = Math.Clamp((int)MathF.Round(0.56f * (len - 1)), 0, len - 1);
-        var wingRootX = env.HalfWidth[wingRootZ];
+        var wingRootX = OuterEdge(env, hulls, wingRootZ);
         var bandStart = wingRootX + (int)MathF.Round(span * 0.62f);
         var bandWidth = Math.Max(2, detail * 2);
 
@@ -679,22 +808,20 @@ public static class VoxelShipGrower
     /// <summary>Rows of lit ports down each flank. Deliberately sparse and evenly spaced: windows
     /// are a scale cue, and scattering them densely reads as noise rather than as decks. The
     /// search is capped at the hull half-width so ports land on the fuselage, not on wingtips.</summary>
-    private static void PaintWindows(VoxelGrid grid, Envelope env, int len, int detail)
+    private static void PaintWindows(VoxelGrid grid, Envelope env, HullColumn hull, int len, int detail)
     {
         var spacing = Math.Max(4, len / 8);
 
         for (var z = 0; z < len; z++)
         {
             if (z % spacing != 1) continue;
-
-            var hw = env.HalfWidth[z];
-            if (hw < 2) continue;
+            if (HalfWidthOf(env, hull, z) < 2) continue;
 
             // Two rows at different deck heights, so tall hulls look multi-decked. Each port is a
             // detail-sized patch rather than a single voxel, so ports stay legible as windows.
             for (var row = 0; row < 2; row++)
             {
-                var y0 = (int)MathF.Round(env.Top[z] * (row == 0 ? 0.55f : 0.15f));
+                var y0 = (int)MathF.Round(env.Top[z] * hull.Scale * (row == 0 ? 0.55f : 0.15f));
 
                 for (var dz = 0; dz < detail; dz++)
                     for (var dy = 0; dy < detail; dy++)
@@ -703,7 +830,8 @@ public static class VoxelShipGrower
                         var zz = z + dz;
                         if (zz >= len) continue;
 
-                        var sideX = SideFilledX(grid, y, zz, env.HalfWidth[zz] + 1);
+                        var searchTo = hull.XOffset + HalfWidthOf(env, hull, zz) + 1;
+                        var sideX = SideFilledX(grid, y, zz, searchTo);
                         if (sideX is null || !IsPlating(grid, sideX.Value, y, zz)) continue;
                         grid.SetMirrored(sideX.Value, y, zz, VoxelMaterial.Window);
                     }
@@ -714,7 +842,7 @@ public static class VoxelShipGrower
     /// <summary>Scatters raised plates on the deck. Plate footprint *and* height scale with the
     /// detail unit, so higher resolution yields the same reading of chunky plating at a finer
     /// grain rather than a rash of one-voxel pimples.</summary>
-    private static void AddRaisedPlates(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int detail)
+    private static void AddRaisedPlates(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, HullColumn hull, int len, int detail)
     {
         var count = (int)MathF.Round(p.GreebleDensity * len * 0.7f / detail);
 
@@ -722,15 +850,16 @@ public static class VoxelShipGrower
         {
             var z0 = rng.Next(2, Math.Max(3, len - 2));
             var lengthZ = rng.Next(2, 6) * detail;
-            var hw = env.HalfWidth[Math.Clamp(z0, 0, len - 1)];
+            var hw = HalfWidthOf(env, hull, Math.Clamp(z0, 0, len - 1));
             if (hw < 2) continue;
 
-            var x0 = rng.Next(0, hw);
-            var widthX = rng.Next(1, Math.Max(2, hw - x0 + 1));
+            var dx0 = rng.Next(-hw, hw);
+            var widthX = rng.Next(1, Math.Max(2, hw - dx0 + 1));
 
             for (var z = z0; z < Math.Min(z0 + lengthZ, len); z++)
-                for (var x = x0; x <= Math.Min(x0 + widthX, hw); x++)
+                for (var dx = dx0; dx <= Math.Min(dx0 + widthX, hw); dx++)
                 {
+                    var x = hull.XOffset + dx;
                     var topY = TopFilledY(grid, x, z);
                     if (topY is null || !IsHullDeck(env, topY.Value, z)) continue;
                     if (!IsPlating(grid, x, topY.Value, z)) continue;
@@ -742,7 +871,7 @@ public static class VoxelShipGrower
 
     /// <summary>Cuts shallow pockets into the deck and darkens their floor. Recesses matter as
     /// much as raised plates: they add self-shadowing, which is what sells the surface as machined.</summary>
-    private static void CarveRecesses(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, int len, int detail)
+    private static void CarveRecesses(VoxelGrid grid, Random rng, ShipParameters p, Envelope env, HullColumn hull, int len, int detail)
     {
         var count = (int)MathF.Round(p.GreebleDensity * len * 0.5f / detail);
 
@@ -750,15 +879,16 @@ public static class VoxelShipGrower
         {
             var z0 = rng.Next(2, Math.Max(3, len - 2));
             var lengthZ = rng.Next(2, 5) * detail;
-            var hw = env.HalfWidth[Math.Clamp(z0, 0, len - 1)];
+            var hw = HalfWidthOf(env, hull, Math.Clamp(z0, 0, len - 1));
             if (hw < 3) continue;
 
-            var x0 = rng.Next(0, hw - 1);
-            var widthX = rng.Next(1, Math.Max(2, hw - x0));
+            var dx0 = rng.Next(-hw, hw - 1);
+            var widthX = rng.Next(1, Math.Max(2, hw - dx0));
 
             for (var z = z0; z < Math.Min(z0 + lengthZ, len); z++)
-                for (var x = x0; x <= Math.Min(x0 + widthX, hw); x++)
+                for (var dx = dx0; dx <= Math.Min(dx0 + widthX, hw); dx++)
                 {
+                    var x = hull.XOffset + dx;
                     // Never cut a pocket deeper than the plate it sits in. Toward the tail and out
                     // on the flanks the hull thins to a couple of voxels, and cutting the full
                     // depth there punches straight through, severing the column and stranding the
