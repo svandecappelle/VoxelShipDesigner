@@ -33,10 +33,13 @@ public static class VoxelMesher
     /// and blue markings is exactly what makes them register as lights.</summary>
     private static readonly Vector3 WindowColor = new(0.96f, 0.75f, 0.26f);
 
-    public static void AddToScene(SceneBuilder scene, VoxelGrid grid, float voxelSize, ShipParameters p)
+    /// <summary>The material set a ship exports with. Shared with the Unity mesher so both write
+    /// the same names and colours -- a bundle whose materials disagreed with the plain export
+    /// would be worse than no bundle.</summary>
+    internal static Dictionary<VoxelMaterial, MaterialBuilder> BuildMaterials(ShipParameters p)
     {
         var hull = p.HullColor.ToVector4();
-        var materials = new Dictionary<VoxelMaterial, MaterialBuilder>
+        return new Dictionary<VoxelMaterial, MaterialBuilder>
         {
             [VoxelMaterial.Hull] = new MaterialBuilder("voxel_hull").WithMetallicRoughness(0.4f, 0.6f).WithBaseColor(hull),
             [VoxelMaterial.HullDark] = new MaterialBuilder("voxel_hull_dark").WithMetallicRoughness(0.5f, 0.65f).WithBaseColor(Shade(hull, 0.46f)),
@@ -47,6 +50,11 @@ public static class VoxelMesher
             [VoxelMaterial.Cockpit] = new MaterialBuilder("voxel_cockpit").WithMetallicRoughness(0.2f, 0.2f)
                 .WithBaseColor(p.CockpitTintColor.ToVector4(0.85f)).WithAlpha(AlphaMode.BLEND, 0.1f).WithDoubleSide(true),
         };
+    }
+
+    public static void AddToScene(SceneBuilder scene, VoxelGrid grid, float voxelSize, ShipParameters p)
+    {
+        var materials = BuildMaterials(p);
 
         var meshesByMaterial = new Dictionary<VoxelMaterial, MeshBuilder<MaterialBuilder, VertexPositionNormal, VertexEmpty, VertexEmpty>>();
         var primsByMaterial = new Dictionary<VoxelMaterial, IPrimitiveBuilder>();

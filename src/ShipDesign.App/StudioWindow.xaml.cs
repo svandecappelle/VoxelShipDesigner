@@ -1,8 +1,10 @@
 using System;
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
+using Microsoft.Win32;
 using ShipDesign.App.Rendering;
 using ShipDesign.Core.Procedural;
 
@@ -21,9 +23,15 @@ namespace ShipDesign.App
         private double _height = 12;
         private Point3D _target;
 
+        private readonly ShipParameters _parameters;
+        private readonly string _designation;
+
         public StudioWindow(ShipParameters parameters, string designation)
         {
             InitializeComponent();
+
+            _parameters = parameters;
+            _designation = designation;
 
             DataContext = new { Designation = designation };
             Render(parameters);
@@ -36,9 +44,18 @@ namespace ShipDesign.App
             SpinToggle.Checked += OnSpinToggled;
             SpinToggle.Unchecked += OnSpinToggled;
 
+            // The glow passes have their own cameras, and nothing keeps them aligned by themselves.
+            // Mirroring on every composition frame rather than only when the spin timer fires is
+            // what makes the halo hold its place when the view is dragged by hand -- otherwise the
+            // lit scene turns and the halo stays where it was.
+            CompositionTarget.Rendering += OnFrame;
+            Closed += (_, _) => CompositionTarget.Rendering -= OnFrame;
+
             _spinTimer.Tick += (_, _) => Step();
             _spinTimer.Start();
         }
+
+        private void OnFrame(object? sender, EventArgs e) => MirrorCamera();
 
         private void Render(ShipParameters parameters)
         {
@@ -126,13 +143,14 @@ namespace ShipDesign.App
             SyncCamera();
         }
 
-        /// <summary>
-        /// All three viewports are driven from one camera state. They are separate Viewport3D
-        /// instances, so nothing keeps them aligned automatically -- and a glow pass rendered from
-        /// even a slightly different angle would smear the halo away from its lamp.
-        /// </summary>
+        /// <summary>Places the main camera on its orbit. Only the main one: the glow passes are
+        /// mirrored from it every frame, so they follow whether the movement came from the spin or
+        /// from the user dragging the view.</summary>
         private void SyncCamera()
         {
+            if (MainViewport.Camera is not PerspectiveCamera camera)
+                return;
+
             // Orbit around the model's own centre. The voxel grid starts at z=0 and runs forward,
             // so the origin is at the bow rather than the middle -- orbiting the origin would swing
             // the ship in and out of frame instead of turning it on the spot.
@@ -141,16 +159,31 @@ namespace ShipDesign.App
                 _target.Y + _height,
                 _target.Z + _radius * Math.Sin(_angle));
 
-            var direction = _target - position;
+            camera.Position = position;
+            camera.LookDirection = _target - position;
+            camera.UpDirection = new Vector3D(0, 1, 0);
+            camera.FieldOfView = 42;
 
-            foreach (var viewport in new[] { MainViewport, GlowViewport, GlowCoreViewport })
+            MirrorCamera();
+        }
+
+        /// <summary>Copies the main camera onto the glow passes. A halo rendered from even a
+        /// slightly different angle smears away from the lamp it belongs to.</summary>
+        private void MirrorCamera()
+        {
+            if (MainViewport.Camera is not PerspectiveCamera source)
+                return;
+
+            foreach (var viewport in new[] { GlowViewport, GlowCoreViewport })
             {
                 if (viewport.Camera is not PerspectiveCamera camera)
                     continue;
-                camera.Position = position;
-                camera.LookDirection = direction;
-                camera.UpDirection = new Vector3D(0, 1, 0);
-                camera.FieldOfView = 42;
+                camera.Position = source.Position;
+                camera.LookDirection = source.LookDirection;
+                camera.UpDirection = source.UpDirection;
+                camera.FieldOfView = source.FieldOfView;
+                camera.NearPlaneDistance = source.NearPlaneDistance;
+                camera.FarPlaneDistance = source.FarPlaneDistance;
             }
         }
 
@@ -159,6 +192,36 @@ namespace ShipDesign.App
             var visible = GlowToggle.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             GlowViewport.Visibility = visible;
             GlowCoreViewport.Visibility = visible;
+        }
+
+        private void OnExportBundle(object sender, RoutedEventArgs e)
+        {
+            // A folder rather than a file: the point of the bundle is that the mesh arrives with
+            // the shader that makes its baked occlusion visible, so they have to stay together.
+            var dialog = new SaveFileDialog
+            {
+                Title = "Dossier du bundle Unity",
+                FileName = _designation,
+                Filter = "Dossier de bundle|*.",
+                OverwritePrompt = false,
+            };
+
+            if (dialog.ShowDialog(this) != true)
+                return;
+
+            var folder = Path.Combine(
+                Path.GetDirectoryName(dialog.FileName) ?? ".",
+                Path.GetFileNameWithoutExtension(dialog.FileName));
+
+            try
+            {
+                var result = UnityBundleExporter.Export(_parameters, folder, _designation);
+                StatusLine.Text = $"Bundle écrit dans {result.Folder} — {string.Join(", ", result.Files)} ({result.Triangles:N0} triangles)";
+            }
+            catch (Exception ex)
+            {
+                StatusLine.Text = $"Échec de l'export : {ex.Message}";
+            }
         }
 
         private void OnSpinToggled(object sender, RoutedEventArgs e)

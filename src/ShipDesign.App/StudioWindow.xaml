@@ -35,6 +35,11 @@
                     <TextBlock Text="Rotation" FontSize="10.5" Margin="8,0,0,0"
                                Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
                 </StackPanel>
+
+                <Button x:Name="ExportBundleButton" Content="⬇ BUNDLE UNITY" Margin="28,0,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}" Padding="12,7"
+                        Click="OnExportBundle"
+                        ToolTip="Écrit le maillage, le shader URP, le manifeste de matériaux et la notice d'import dans un dossier" />
             </StackPanel>
         </Border>
 
