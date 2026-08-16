@@ -85,7 +85,7 @@ namespace ShipDesign.App
             SetGlowContent(GlowCoreViewport, result.Emissive);
 
             var triangles = CountTriangles(result.Solid) + CountTriangles(result.Emissive);
-            StatusLine.Text = $"{grid.Voxels.Count:N0} voxels — {triangles:N0} triangles — occlusion ambiante cuite, halo composité";
+            StatusLine.Text = $"{grid.Voxels.Count:N0} voxels — {triangles:N0} triangles — occlusion ambiante et ombres portées cuites, halo composité";
 
             SyncCamera();
         }

@@ -35,6 +35,10 @@ public static class UnityBundleExporter
         File.WriteAllText(shaderPath, ShaderSource, new UTF8Encoding(false));
         written.Add(Path.GetFileName(shaderPath));
 
+        // Real .mat assets, not just a description of them: a manifest tells you what to build by
+        // hand, which is not the same as the folder being importable.
+        written.AddRange(UnityMaterialWriter.WriteAll(p, folder));
+
         var manifestPath = Path.Combine(folder, "materials.json");
         File.WriteAllText(manifestPath, BuildManifest(p, designation), new UTF8Encoding(false));
         written.Add(Path.GetFileName(manifestPath));
@@ -92,17 +96,24 @@ public static class UnityBundleExporter
         | Fichier | Rôle |
         |---|---|
         | `{{designation}}.glb` | Le maillage, avec l'occlusion ambiante cuite dans les couleurs de sommet (`COLOR_0`) et l'émissif en HDR (`KHR_materials_emissive_strength`). |
-        | `VoxelShipURP.shader` | Shader URP qui multiplie l'albédo par la couleur de sommet. Sans lui l'occlusion est présente dans le fichier mais invisible. |
-        | `materials.json` | Couleurs et réglages de chaque matériau, pour reconstruire les matériaux à la main si besoin. |
+        | `VoxelShipURP.shader` (+ `.meta`) | Shader URP qui multiplie l'albédo par la couleur de sommet. Sans lui l'occlusion est présente dans le fichier mais invisible. Le `.meta` fixe son GUID, ce qui permet aux `.mat` de le référencer dès l'import. |
+        | `voxel_*.mat` | Les sept matériaux prêts à l'emploi, déjà réglés sur le shader ci-dessus. |
+        | `materials.json` | Les mêmes valeurs en lisible, si vous préférez régler à la main. |
 
         ## Étapes
 
-        1. Glisser les quatre fichiers dans `Assets/`.
-        2. Sur le prefab importé, remplacer le shader de chaque matériau par **ShipDesign/Voxel Ship URP**.
+        1. Glisser **tout le dossier** dans `Assets/` — les `.meta` doivent accompagner les fichiers,
+           sinon Unity régénère les GUID et les `.mat` perdent leur shader.
+        2. Sur le prefab importé du `.glb`, affecter les `voxel_*.mat` aux emplacements de matériaux
+           correspondants (les noms sont identiques à ceux des primitives du maillage).
         3. Ajouter un **Volume** avec **Bloom** et **Tonemapping (ACES)**. Sans bloom, les réacteurs et
            les hublots restent des aplats : le halo est un effet d'image, pas une propriété du modèle.
         4. Vérifier que le projet est en espace colorimétrique **Linear**
            (*Project Settings → Player → Color Space*). En Gamma tout paraît délavé.
+
+        Les ombres portées sont laissées à Unity : une directionnelle avec ombres douces suffit. Le
+        `.glb` ne contient volontairement que l'occlusion ambiante, pas d'ombre cuite, qui se
+        cumulerait avec celles calculées en temps réel.
 
         ## Points à surveiller
 

@@ -35,7 +35,7 @@
                 <RowDefinition Height="260" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" ClipToBounds="True">
+            <Grid x:Name="HeroBackdrop" Grid.Row="0" ClipToBounds="True">
                 <Grid.Background>
                     <RadialGradientBrush GradientOrigin="0.45,0.4" Center="0.45,0.4" RadiusX="0.8" RadiusY="0.8">
                         <GradientStop Color="#142C3C" Offset="0" />
@@ -54,7 +54,7 @@
                 </h:HelixViewport3D>
             </Grid>
 
-            <Grid Grid.Row="1" Margin="18,10,18,18">
+            <Grid x:Name="Elevations" Grid.Row="1" Margin="18,10,18,18">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />

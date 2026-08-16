@@ -23,6 +23,11 @@ public static class StudioMeshBuilder
         (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
     };
 
+    /// <summary>Direction the key light travels, matching the studio and sheet light rigs. A baked
+    /// shadow has to agree with the light that is actually in the scene, or parts will be shaded on
+    /// the wrong side.</summary>
+    public static readonly (float X, float Y, float Z) KeyLightTravel = (-0.55f, -0.72f, -0.42f);
+
     /// <summary>Materials that emit light. They are kept out of the occlusion bucketing (a lamp
     /// does not get darker for sitting in a corner) and are handed back separately so the window
     /// can render them again into its glow pass.</summary>
@@ -34,6 +39,7 @@ public static class StudioMeshBuilder
     public static Result Build(VoxelGrid grid, float voxelSize, ShipParameters p)
     {
         var palette = StudioPalette.For(p);
+        var toLight = VoxelShadowCaster.ToLightFromTravel(KeyLightTravel.X, KeyLightTravel.Y, KeyLightTravel.Z);
 
         // One mesh per bucket, accumulated then committed: adding triangles to a MeshGeometry3D
         // already attached to the visual tree is far slower than building it up first.
@@ -61,7 +67,11 @@ public static class StudioMeshBuilder
                 }
                 else
                 {
-                    var shade = VoxelAmbientOcclusion.FaceShade(grid, (vx, vy, vz), n);
+                    // Occlusion and cast shadow describe different things -- contact darkening and
+                    // the key light being blocked -- so they multiply rather than one replacing
+                    // the other, and a crevice in shadow ends up darker than either alone.
+                    var shade = VoxelAmbientOcclusion.FaceShade(grid, (vx, vy, vz), n)
+                              * VoxelShadowCaster.Shade(grid, (vx, vy, vz), n, toLight);
                     var level = StudioPalette.LevelFor(shade);
                     var key = (material, level);
                     if (!solidMeshes.TryGetValue(key, out mesh!))

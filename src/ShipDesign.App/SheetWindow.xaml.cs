@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
@@ -196,23 +197,59 @@ namespace ShipDesign.App
             var width = (int)Math.Ceiling(bounds.Width * scale);
             var height = (int)Math.Ceiling(bounds.Height * scale);
 
-            var target = new RenderTargetBitmap(width, height, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+            // Two passes over the same area, staged here rather than inside the compositor because
+            // producing an emissive-only frame means hiding most of the tree, which only this
+            // window can do safely.
+            var scene = RenderPass(bounds, width, height, scale, emissiveOnly: false);
+            var glow = RenderPass(bounds, width, height, scale, emissiveOnly: true);
 
-            // Drawn through a VisualBrush so the whole of `bounds` maps into the bitmap; rendering
-            // the element directly would anchor it at its own origin and lose the overflow again.
-            var visual = new DrawingVisual();
-            using (var context = visual.RenderOpen())
-                context.DrawRectangle(new VisualBrush(SheetRoot), null, new Rect(bounds.Location, bounds.Size));
-
-            target.Render(visual);
+            var composed = BloomCompositor.Composite(scene, glow, width, height, scale);
 
             var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(target));
+            encoder.Frames.Add(BitmapFrame.Create(composed));
 
             using var stream = File.Create(path);
             encoder.Save(stream);
 
             return new Size(width, height);
+        }
+
+        /// <summary>
+        /// Renders the sheet either normally or as the emissive lamps alone on black. The glow
+        /// overlay is taken out of the lit pass so the halo is not counted twice -- once faked by
+        /// the on-screen blur and once added properly by the compositor.
+        /// </summary>
+        private byte[] RenderPass(Rect bounds, int width, int height, double scale, bool emissiveOnly)
+        {
+            var backdrop = HeroBackdrop.Background;
+            var rootBackground = SheetRoot.Background;
+
+            HeroGlowViewport.Visibility = Visibility.Collapsed;
+
+            if (emissiveOnly)
+            {
+                // Black rather than transparent: the compositor weights the glow by its alpha, and
+                // an unlit backdrop that is black adds nothing wherever there is no lamp.
+                HeroBackdrop.Background = Brushes.Black;
+                SheetRoot.Background = Brushes.Black;
+                HeroViewport.Visibility = Visibility.Collapsed;
+                Elevations.Visibility = Visibility.Collapsed;
+                HeroGlowViewport.Effect = null;
+                HeroGlowViewport.Visibility = Visibility.Visible;
+            }
+
+            UpdateLayout();
+            var pixels = BloomCompositor.Render(SheetRoot, bounds, width, height, scale);
+
+            HeroBackdrop.Background = backdrop;
+            SheetRoot.Background = rootBackground;
+            HeroViewport.Visibility = Visibility.Visible;
+            Elevations.Visibility = Visibility.Visible;
+            HeroGlowViewport.Effect = new BlurEffect { Radius = 24, KernelType = KernelType.Gaussian };
+            HeroGlowViewport.Visibility = Visibility.Visible;
+            UpdateLayout();
+
+            return pixels;
         }
     }
 }

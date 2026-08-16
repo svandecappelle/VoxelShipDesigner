@@ -27,8 +27,25 @@ public sealed class StudioPalette
     /// swatch and the hull it claims to describe cannot drift apart.</summary>
     public IReadOnlyList<(string Name, Color Colour)> Swatches => _swatches;
 
-    public static int LevelFor(float shade) =>
-        Math.Clamp((int)MathF.Round(shade * (VoxelAmbientOcclusion.Levels - 1)), 0, VoxelAmbientOcclusion.Levels - 1);
+    /// <summary>
+    /// Shade levels the palette quantises to. More than ambient occlusion alone needs: occlusion
+    /// and cast shadow multiply together, so the darkest a surface can get is well below the
+    /// darkest occlusion, and four levels calibrated on occlusion would have rendered shadowed
+    /// faces *lighter* than deep crevices.
+    /// </summary>
+    public const int Levels = 6;
+
+    /// <summary>Brightness of the darkest level: occlusion floor times shadow floor.</summary>
+    private const float MinShade = 0.42f * VoxelShadowCaster.ShadowShade;
+
+    private static float ShadeForLevel(int level) =>
+        MinShade + (1f - MinShade) * (Math.Clamp(level, 0, Levels - 1) / (float)(Levels - 1));
+
+    public static int LevelFor(float shade)
+    {
+        var t = (shade - MinShade) / (1f - MinShade);
+        return Math.Clamp((int)MathF.Round(t * (Levels - 1)), 0, Levels - 1);
+    }
 
     public static StudioPalette For(ShipParameters p)
     {
@@ -45,16 +62,16 @@ public sealed class StudioPalette
         };
 
         foreach (var (material, colour) in baseColours)
-            for (var level = 0; level < VoxelAmbientOcclusion.Levels; level++)
+            for (var level = 0; level < Levels; level++)
             {
-                var shaded = ShadeHsl(colour, VoxelAmbientOcclusion.Shade(level));
+                var shaded = ShadeHsl(colour, ShadeForLevel(level));
                 var brush = new SolidColorBrush(ToWpf(shaded));
                 var group = new MaterialGroup();
                 group.Children.Add(new DiffuseMaterial(brush));
 
                 // A touch of specular on the brighter faces only: it reads as a sheen catching the
                 // key light, and applying it in the crevices too would flatten the occlusion again.
-                if (level >= VoxelAmbientOcclusion.Levels - 2)
+                if (level >= Levels - 2)
                     group.Children.Add(new SpecularMaterial(new SolidColorBrush(Color.FromRgb(40, 46, 54)), 22));
 
                 group.Freeze();
@@ -76,7 +93,7 @@ public sealed class StudioPalette
         })
         {
             palette._swatches.Add((label, ToWpf(ShadeHsl(colour, 1f))));
-            palette._swatches.Add(($"{label} ombré", ToWpf(ShadeHsl(colour, VoxelAmbientOcclusion.Shade(0)))));
+            palette._swatches.Add(($"{label} ombré", ToWpf(ShadeHsl(colour, ShadeForLevel(0)))));
         }
 
         palette._swatches.Add(("Hublots", ToWpf(windowColour)));
