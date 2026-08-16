@@ -93,6 +93,25 @@
                                     <TextBlock Text="GÉOMÉTRIE DE COQUE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
                                 </StackPanel>
 
+                                <TextBlock Text="Forme de coque" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
+                                         SelectedItem="{Binding HullShape}" Margin="0,0,0,10">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel>
+                                                <!-- Stretch="None" keeps each outline at its authored size, so the
+                                                     buttons show the shapes' relative proportions rather than
+                                                     normalising every one of them to fill the same box. -->
+                                                <Path Data="{Binding Converter={StaticResource HullShapeIconConverter}}"
+                                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                      Stretch="None" Width="44" Height="22" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}"
+                                                           HorizontalAlignment="Center" Margin="0,3,0,0" FontSize="9.5" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Nombre de coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullCount}" />
@@ -104,6 +123,26 @@
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullSpacing, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="2.5" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
+
+                                <!-- Only a trimaran has hulls distinct from the main one: a catamaran
+                                     is two copies of it, so a second shape picker would do nothing. -->
+                                <StackPanel Visibility="{Binding HasSecondaryHulls, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Forme des flotteurs" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                    <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
+                                             SelectedItem="{Binding SecondaryHullShape}" Margin="0,0,0,10">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel>
+                                                    <Path Data="{Binding Converter={StaticResource HullShapeIconConverter}}"
+                                                          Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                          Stretch="None" Width="44" Height="22" HorizontalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}"
+                                                               HorizontalAlignment="Center" Margin="0,3,0,0" FontSize="9.5" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </StackPanel>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Longueur" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />

@@ -4,6 +4,8 @@
 
     <conv:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     <conv:EnumLabelConverter x:Key="EnumLabelConverter" />
+    <conv:HullShapeIconConverter x:Key="HullShapeIconConverter" />
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
     <!-- Palette, matching vessel-forge.html -->
     <SolidColorBrush x:Key="BgDeepBrush" Color="#081826" />

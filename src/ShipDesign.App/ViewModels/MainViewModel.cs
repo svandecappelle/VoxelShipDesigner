@@ -25,6 +25,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private int _triangleCount;
 
     public IReadOnlyList<HullClass> HullClasses { get; } = Enum.GetValues<HullClass>();
+    public IReadOnlyList<HullShape> HullShapes { get; } = Enum.GetValues<HullShape>();
     public IReadOnlyList<WingStyle> WingStyles { get; } = Enum.GetValues<WingStyle>();
     public IReadOnlyList<EngineStyle> EngineStyles { get; } = Enum.GetValues<EngineStyle>();
     public IReadOnlyList<CockpitStyle> CockpitStyles { get; } = Enum.GetValues<CockpitStyle>();
@@ -43,7 +44,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
     };
 
     public HullClass HullClass { get => _parameters.HullClass; set { _parameters.HullClass = value; OnPropertyChanged(); Rebuild(); } }
-    public int HullCount { get => _parameters.HullCount; set { _parameters.HullCount = value; OnPropertyChanged(); Rebuild(); } }
+    public HullShape HullShape { get => _parameters.HullShape; set { _parameters.HullShape = value; OnPropertyChanged(); Rebuild(); } }
+    public HullShape SecondaryHullShape { get => _parameters.SecondaryHullShape; set { _parameters.SecondaryHullShape = value; OnPropertyChanged(); Rebuild(); } }
+
+    public int HullCount
+    {
+        get => _parameters.HullCount;
+        set
+        {
+            _parameters.HullCount = value;
+            OnPropertyChanged();
+            // The outrigger shape picker only applies to a trimaran, so its visibility follows
+            // this property and has to be re-evaluated whenever the hull count changes.
+            OnPropertyChanged(nameof(HasSecondaryHulls));
+            Rebuild();
+        }
+    }
+
+    /// <summary>Whether the ship has distinct outboard hulls whose shape can differ from the main
+    /// one. A catamaran is two copies of the primary hull, so only a trimaran qualifies.</summary>
+    public bool HasSecondaryHulls => _parameters.HullCount >= 3;
     public float HullSpacing { get => _parameters.HullSpacing; set { _parameters.HullSpacing = value; OnPropertyChanged(); Rebuild(); } }
     public float Length { get => _parameters.Length; set { _parameters.Length = value; OnPropertyChanged(); Rebuild(); } }
     public float Beam { get => _parameters.Beam; set { _parameters.Beam = value; OnPropertyChanged(); Rebuild(); } }
@@ -137,6 +157,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // and making them as common as the conventional layout would dilute that.
         _parameters.HullCount = _random.NextDouble() switch { < 0.65 => 1, < 0.85 => 2, _ => 3 };
         _parameters.HullSpacing = 0.6f + (float)_random.NextDouble() * 1.1f;
+        _parameters.HullShape = HullShapes[_random.Next(HullShapes.Count)];
+        _parameters.SecondaryHullShape = HullShapes[_random.Next(HullShapes.Count)];
         _parameters.Length = 6f + (float)_random.NextDouble() * 30f;
         _parameters.Beam = 1f + (float)_random.NextDouble() * 7f;
         _parameters.Taper = (float)_random.NextDouble();

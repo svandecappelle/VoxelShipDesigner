@@ -28,6 +28,12 @@ public sealed class EnumLabelConverter : IValueConverter
         [CockpitStyle.Bubble] = "Bulle",
         [CockpitStyle.FlatCanopy] = "Verrière",
         [CockpitStyle.None] = "Aucun",
+
+        [HullShape.Dart] = "Dard",
+        [HullShape.Wedge] = "Coin",
+        [HullShape.Spindle] = "Fuseau",
+        [HullShape.Slab] = "Bloc",
+        [HullShape.Hammerhead] = "Marteau",
     };
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>

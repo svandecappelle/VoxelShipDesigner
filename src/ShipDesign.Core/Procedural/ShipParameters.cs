@@ -15,6 +15,14 @@ public sealed class ShipParameters
     /// <see cref="HullCount"/> is above 1.</summary>
     public float HullSpacing { get; set; } = 1f;
 
+    /// <summary>Planform of the main hull.</summary>
+    public HullShape HullShape { get; set; } = HullShape.Dart;
+
+    /// <summary>Planform of the outboard hulls. Separate from <see cref="HullShape"/> so a
+    /// trimaran can pair, say, a wedge centre hull with spindle outriggers. Ignored when
+    /// <see cref="HullCount"/> is 1.</summary>
+    public HullShape SecondaryHullShape { get; set; } = HullShape.Spindle;
+
     public float Length { get; set; } = 14f;
     public float Beam { get; set; } = 3.2f;
     public float Taper { get; set; } = 0.5f;
