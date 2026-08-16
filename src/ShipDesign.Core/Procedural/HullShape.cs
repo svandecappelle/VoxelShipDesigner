@@ -22,6 +22,18 @@ public enum HullShape
 
     /// <summary>Broad bow, pinched waist, moderate stern -- a command-ship profile.</summary>
     Hammerhead,
+
+    /// <summary>A broad, flat disc: wider than it is long, and thin. Unlike the elongated shapes
+    /// its width comes from the ship's length rather than its beam, or it would just be a long
+    /// ellipse.</summary>
+    Saucer,
+
+    /// <summary>A disc with the middle cut out -- an annulus. Closes to solid at bow and stern so
+    /// the ring is a single continuous band.</summary>
+    Ring,
+
+    /// <summary>A hull split into two prongs at the bow that merge into a common after-body.</summary>
+    Fork,
 }
 
 /// <summary>Width profiles for <see cref="HullShape"/>.</summary>
@@ -66,7 +78,64 @@ public static class HullShapeProfile
                     ? 1f - (u - 0.16f) / 0.24f * 0.42f
                     : 0.58f + (u - 0.4f) / 0.6f * 0.3f,
 
+            // A true circular outline: the half-width traces a semicircle over the length.
+            HullShape.Saucer or HullShape.Ring => MathF.Sqrt(MathF.Max(0f, 1f - Sq(2f * u - 1f))),
+
+            // Broad forward where the prongs spread, narrowing into the joined after-body.
+            HullShape.Fork => u < 0.55f
+                ? 0.75f + 0.25f * MathF.Sin(u / 0.55f * MathF.PI)
+                : 1f - (u - 0.55f) / 0.45f * 0.35f,
+
             _ => 1f,
+        };
+    }
+
+    private static float Sq(float v) => v * v;
+
+    /// <summary>
+    /// Maximum half-width in voxels for this shape. Most planforms take it straight from the beam,
+    /// but a disc has to derive it from the ship's *length* -- keyed to the beam, a saucer would
+    /// come out as a long thin ellipse, which is the one thing a saucer must not be.
+    /// </summary>
+    public static int EffectiveHalfWidth(HullShape shape, int maxHalfWidth, int lengthVoxels) => shape switch
+    {
+        // Half the length: a saucer's diameter *is* its length, which is what makes the plan
+        // circular. Anything less and it comes out an elongated oval instead of a disc.
+        HullShape.Saucer or HullShape.Ring => Math.Max(maxHalfWidth, (int)MathF.Round(lengthVoxels * 0.5f)),
+        HullShape.Fork => Math.Max(maxHalfWidth, (int)MathF.Round(lengthVoxels * 0.2f)),
+        _ => maxHalfWidth,
+    };
+
+    /// <summary>Maximum half-height in voxels. Discs are flattened: their width now comes from the
+    /// length, so keeping the full height would make a sphere rather than a saucer.</summary>
+    public static int EffectiveHalfHeight(HullShape shape, int maxHalfHeight) => shape switch
+    {
+        HullShape.Saucer or HullShape.Ring => Math.Max(2, (int)MathF.Round(maxHalfHeight * 0.8f)),
+        _ => maxHalfHeight,
+    };
+
+    /// <summary>
+    /// Fraction of the outer half-width that is hollow at <paramref name="u"/>. 0 is a solid
+    /// slice. This is what lets a planform have a hole in it at all -- an outline alone can only
+    /// ever describe a solid lens.
+    /// </summary>
+    public static float InnerFractionAt(HullShape shape, float u)
+    {
+        u = Math.Clamp(u, 0f, 1f);
+
+        return shape switch
+        {
+            // Annulus over the middle, ramping to solid before either end. The closure has to be
+            // driven from u rather than left to the outer-width clamp: that clamp keeps a
+            // one-voxel hole open right up to where the hull vanishes, which leaves two
+            // unconnected crescents instead of a ring.
+            HullShape.Ring => 0.55f * Math.Clamp((MathF.Min(u, 1f - u) - 0.12f) / 0.12f, 0f, 1f),
+
+            // Hollow at the bow and closing by mid-length, which is what makes two prongs that
+            // merge rather than two separate hulls.
+            HullShape.Fork => u < 0.5f ? (0.5f - u) / 0.5f * 0.72f : 0f,
+
+            _ => 0f,
         };
     }
 
@@ -92,6 +161,14 @@ public static class HullShapeProfile
 
             // The bow flare is mostly lateral; the superstructure end carries the height.
             HullShape.Hammerhead => 0.6f + 0.4f * MathF.Pow(u, 0.7f),
+
+            // Thickest at the centre, thinning to a rim -- a lens, not a cylinder.
+            HullShape.Saucer => 0.45f + 0.55f * MathF.Sqrt(MathF.Max(0f, 1f - Sq(2f * u - 1f))),
+
+            // The ring keeps a near-constant section all the way round its band.
+            HullShape.Ring => 0.8f + 0.2f * MathF.Sin(u * MathF.PI),
+
+            HullShape.Fork => 0.7f + 0.3f * MathF.Pow(u, 0.6f),
 
             _ => WidthAt(shape, u, taper),
         };

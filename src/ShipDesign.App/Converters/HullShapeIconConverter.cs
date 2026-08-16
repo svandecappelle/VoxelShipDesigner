@@ -32,13 +32,29 @@ public sealed class HullShapeIconConverter : IValueConverter
 
         // Wide bow, pinched waist, moderate after-body.
         [HullShape.Hammerhead] = "M 2,11 L 7,2 L 14,2 L 17,8 L 30,7 L 41,5 L 41,17 L 30,15 L 17,14 L 14,20 L 7,20 Z",
+
+        // A disc: wider across than it is long, so it is drawn as a full ellipse.
+        [HullShape.Saucer] = "M 22,1 A 20,10 0 1 1 21.9,1 Z",
+
+        // The same disc with the middle cut out. The second sub-path runs the opposite way, which
+        // is what makes the even-odd fill leave a hole rather than a smaller filled disc.
+        [HullShape.Ring] = "M 22,1 A 20,10 0 1 1 21.9,1 Z M 22,5 A 11,5.5 0 1 0 22.1,5 Z",
+
+        // Two prongs at the bow merging into a common after-body.
+        [HullShape.Fork] = "M 2,2 L 16,5 L 30,6 L 41,7 L 41,15 L 30,16 L 16,17 L 2,20 L 2,15 L 13,13 L 13,9 L 2,7 Z",
     };
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is HullShape shape && Outlines.TryGetValue(shape, out var data))
-            return Geometry.Parse(data);
-        return Geometry.Empty;
+        if (value is not HullShape shape || !Outlines.TryGetValue(shape, out var data))
+            return Geometry.Empty;
+
+        var geometry = Geometry.Parse(data);
+        // EvenOdd is what turns the ring's inner sub-path into an actual hole; the default
+        // Nonzero rule would fill straight over it and draw a plain disc.
+        if (geometry is PathGeometry path)
+            path.FillRule = FillRule.EvenOdd;
+        return geometry;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

@@ -37,6 +37,20 @@ public static class VoxelShipGrower
         public required int[] HalfWidth { get; init; }
         public required int[] Top { get; init; }
         public required int[] Bottom { get; init; }
+
+        /// <summary>Half-width of the hollow core at each slice; 0 where the slice is solid.
+        /// Without this an envelope can only ever describe a solid lens, which rules out a ring
+        /// or a split bow no matter what the outline says.</summary>
+        public required int[] InnerHalfWidth { get; init; }
+
+        /// <summary>X offset (from the hull centreline) of material that actually exists at this
+        /// slice. Structures are seated here rather than at the centreline, which on a hollow hull
+        /// is empty space -- a bridge tower placed at x=0 on a ring would hang in the hole.</summary>
+        public int SpineOffset(int z)
+        {
+            var inner = InnerHalfWidth[z];
+            return inner == 0 ? 0 : (inner + HalfWidth[z]) / 2;
+        }
     }
 
     /// <summary>Per-seed placement jitter for the bolt-on structures. Drawn up front in a fixed
@@ -67,22 +81,23 @@ public static class VoxelShipGrower
         if (count == 1)
             return new[] { new HullColumn(0, primary) };
 
-        var gap = Math.Max(1, (int)MathF.Round(maxHalfWidth * 0.8f * Math.Max(0.1f, p.HullSpacing)));
+        // Space the hulls off their *actual* widths rather than the beam: a saucer is far wider
+        // than its beam implies, and offsets computed from the beam would overlap the hulls.
+        var primaryHalfWidth = primary.HalfWidth.Max();
+        var gap = Math.Max(1, (int)MathF.Round(primaryHalfWidth * 0.8f * Math.Max(0.1f, p.HullSpacing)));
 
         // A catamaran is two copies of the primary hull, so it needs no second envelope -- the
         // single entry at +d is mirrored into the port hull.
         if (count == 2)
-            return new[] { new HullColumn(maxHalfWidth + gap, primary) };
+            return new[] { new HullColumn(primaryHalfWidth + gap, primary) };
 
         const float outriggerScale = 0.62f;
-        var outriggerHalfWidth = Math.Max(1, (int)MathF.Round(maxHalfWidth * outriggerScale));
-        var outriggerHalfHeight = Math.Max(1, (int)MathF.Round(maxHalfHeight * outriggerScale));
-        var outrigger = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, len, outriggerHalfWidth, outriggerHalfHeight);
+        var outrigger = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, len, maxHalfWidth, maxHalfHeight, outriggerScale);
 
         return new[]
         {
             new HullColumn(0, primary),
-            new HullColumn(maxHalfWidth + gap + outriggerHalfWidth, outrigger),
+            new HullColumn(primaryHalfWidth + gap + outrigger.HalfWidth.Max(), outrigger),
         };
     }
 
@@ -174,8 +189,15 @@ public static class VoxelShipGrower
     // ---- Hull envelope ------------------------------------------------------------------
 
     private static Envelope GrowEnvelope(
-        Random rng, ShipParameters p, HullClassPreset preset, HullShape shape, int len, int maxHW, int maxHH)
+        Random rng, ShipParameters p, HullClassPreset preset, HullShape shape, int len, int nominalHW, int nominalHH, float scale = 1f)
     {
+        // Disc planforms size themselves off the length instead of the beam, so ask the shape
+        // what its working dimensions are rather than assuming the beam-derived ones. The
+        // outrigger scale is applied *after* that, so a saucer float is a small saucer rather
+        // than a full-size one that happens to sit outboard.
+        var maxHW = Math.Max(2, (int)MathF.Round(HullShapeProfile.EffectiveHalfWidth(shape, nominalHW, len) * scale));
+        var maxHH = Math.Max(1, (int)MathF.Round(HullShapeProfile.EffectiveHalfHeight(shape, nominalHH) * scale));
+
         var w = new float[len];
         var top = new float[len];
         var bottom = new float[len];
@@ -238,11 +260,29 @@ public static class VoxelShipGrower
         Smooth(bottom);
         Smooth(bottom);
 
+        var halfWidth = Quantize(w);
+
+        // The hollow core is derived from the *final* outer width, after smoothing and rounding,
+        // so the two can never cross. Leaving at least MinRimVoxels of material also closes the
+        // hole automatically wherever the outline pinches in -- which is what makes a ring a
+        // continuous band rather than two loose arcs.
+        const int minRimVoxels = 2;
+        var inner = new int[len];
+        for (var z = 0; z < len; z++)
+        {
+            var fraction = HullShapeProfile.InnerFractionAt(shape, z / (float)(len - 1));
+            if (fraction <= 0f) continue;
+
+            var candidate = (int)MathF.Round(halfWidth[z] * fraction);
+            inner[z] = Math.Max(0, Math.Min(candidate, halfWidth[z] - minRimVoxels));
+        }
+
         return new Envelope
         {
-            HalfWidth = Quantize(w),
+            HalfWidth = halfWidth,
             Top = Quantize(top),
             Bottom = Quantize(bottom),
+            InnerHalfWidth = inner,
         };
     }
 
@@ -279,9 +319,21 @@ public static class VoxelShipGrower
                 // Sweep the full width of this hull rather than 0..hw: an offset hull is not
                 // centred on x=0, so its port flank is a distinct set of columns. The mirror
                 // then reproduces the whole hull on the other side of the ship.
+                var inner = env.InnerHalfWidth[z];
+
                 for (var dx = -hw; dx <= hw; dx++)
                 {
-                    var shoulder = Shoulder(Math.Abs(dx), hw);
+                    // Skip the hollow core, if this slice has one.
+                    if (inner > 0 && Math.Abs(dx) < inner) continue;
+
+                    // On a hollow slice the section tapers toward *both* rims, not just the outer
+                    // one, so the ring reads as a band with a rounded inner edge rather than a
+                    // plate with a hole punched through it.
+                    var fromOuter = Shoulder(Math.Abs(dx), hw);
+                    var shoulder = inner > 0
+                        ? MathF.Max(fromOuter, Shoulder(hw - Math.Abs(dx) + inner, hw))
+                        : fromOuter;
+
                     var yTop = (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
                     var yBottom = (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
                     for (var y = -yBottom; y <= yTop; y++)
@@ -503,6 +555,9 @@ public static class VoxelShipGrower
         var scale = Math.Max(0.4f, p.SuperstructureSize);
         var y = env.Top[centerZ];
 
+        // On a hollow hull the centreline is empty, so the tower is seated on the band instead.
+        var spine = env.SpineOffset(centerZ);
+
         for (var tier = 0; tier < 3; tier++)
         {
             var halfWidth = Math.Max(1, (int)MathF.Round(HalfWidthOf(primary, centerZ) * (0.55f - tier * 0.13f) * scale));
@@ -515,7 +570,7 @@ public static class VoxelShipGrower
                 if (z < 0 || z >= len) continue;
                 for (var dx = -halfWidth; dx <= halfWidth; dx++)
                     for (var dy = 1; dy <= height; dy++)
-                        grid.SetMirrored(primary.XOffset + dx, y + dy, z, tier == 1 ? VoxelMaterial.Panel : VoxelMaterial.Hull);
+                        grid.SetMirrored(primary.XOffset + spine + dx, y + dy, z, tier == 1 ? VoxelMaterial.Panel : VoxelMaterial.Hull);
             }
 
             y += height;
@@ -530,13 +585,13 @@ public static class VoxelShipGrower
         for (var dy = 1; dy <= mastHeight; dy++)
             for (var dx = -mastHalf; dx <= mastHalf; dx++)
                 for (var dz = -mastHalf; dz <= mastHalf; dz++)
-                    grid.SetMirrored(primary.XOffset + dx, y + dy, centerZ + dz, VoxelMaterial.HullDark);
+                    grid.SetMirrored(primary.XOffset + spine + dx, y + dy, centerZ + dz, VoxelMaterial.HullDark);
 
         // A short crossbar near the top -- reads as a sensor array and breaks the bare spike.
         var barY = y + (int)MathF.Round(mastHeight * 0.7f);
         var barHalf = Math.Max(1, detail * 2);
         for (var dx = -barHalf; dx <= barHalf; dx++)
-            grid.SetMirrored(primary.XOffset + dx, barY, centerZ, VoxelMaterial.HullDark);
+            grid.SetMirrored(primary.XOffset + spine + dx, barY, centerZ, VoxelMaterial.HullDark);
     }
 
     private static void GrowTurrets(VoxelGrid grid, ShipParameters p, HullColumn primary, Layout layout, int len)
@@ -553,7 +608,8 @@ public static class VoxelShipGrower
             var hw = HalfWidthOf(primary, z);
             if (hw < 2) continue;
 
-            var x = primary.XOffset + Math.Max(1, (int)MathF.Round(hw * 0.55f));
+            var spine = primary.Envelope.SpineOffset(z);
+            var x = primary.XOffset + spine + (spine > 0 ? 0 : Math.Max(1, (int)MathF.Round(hw * 0.55f)));
             var onTop = i % 2 == 0;
             var dir = onTop ? 1 : -1;
 
@@ -627,6 +683,10 @@ public static class VoxelShipGrower
         var housingDepth = Math.Max(3, (int)MathF.Round(len * 0.07f));
         var plumeLength = p.EngineStyle == EngineStyle.Ring ? radius + 2 : radius + 5;
 
+        // On a hollow hull the stern centreline is empty, so shift the whole engine block out onto
+        // the band. Without this a ring ship's engines hang unattached in the middle of the hole.
+        var spine = env.SpineOffset(tailZ);
+
         foreach (var (ex, ey) in positions)
         {
             // Housing: a dark cylinder sunk into the tail.
@@ -640,7 +700,7 @@ public static class VoxelShipGrower
                         if (d2 > radius * radius + radius) continue;
                         // Ring engines are hollow: only the outer shell is solid.
                         if (p.EngineStyle == EngineStyle.Ring && d2 < (radius - 1) * (radius - 1)) continue;
-                        grid.SetMirrored(hull.XOffset + ex + dx, ey + dy, z, VoxelMaterial.HullDark);
+                        grid.SetMirrored(hull.XOffset + spine + ex + dx, ey + dy, z, VoxelMaterial.HullDark);
                     }
             }
 
@@ -654,7 +714,7 @@ public static class VoxelShipGrower
                     for (var dy = -r; dy <= r; dy++)
                     {
                         if (dx * dx + dy * dy > r * r + r) continue;
-                        grid.SetMirrored(hull.XOffset + ex + dx, ey + dy, tailZ + dz, VoxelMaterial.Glow);
+                        grid.SetMirrored(hull.XOffset + spine + ex + dx, ey + dy, tailZ + dz, VoxelMaterial.Glow);
                     }
             }
         }
@@ -682,9 +742,11 @@ public static class VoxelShipGrower
             // border rather than thinning to a single voxel as resolution rises.
             var isFrameSlice = Math.Abs(dz) > halfLength - detail;
 
+            var spine = primary.Envelope.SpineOffset(z);
+
             for (var dx = -hw; dx <= hw; dx++)
             {
-                var x = primary.XOffset + dx;
+                var x = primary.XOffset + spine + dx;
                 var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
 

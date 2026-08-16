@@ -34,6 +34,9 @@ public sealed class EnumLabelConverter : IValueConverter
         [HullShape.Spindle] = "Fuseau",
         [HullShape.Slab] = "Bloc",
         [HullShape.Hammerhead] = "Marteau",
+        [HullShape.Saucer] = "Soucoupe",
+        [HullShape.Ring] = "Anneau",
+        [HullShape.Fork] = "Fourche",
     };
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
