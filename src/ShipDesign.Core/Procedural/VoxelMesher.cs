@@ -27,9 +27,11 @@ public static class VoxelMesher
     private static Vector4 Shade(Vector4 color, float factor) =>
         new(color.X * factor, color.Y * factor, color.Z * factor, color.W);
 
-    /// <summary>Warm amber port lights. Fixed rather than parameterized: lit windows read as
-    /// interior lighting, which stays warm regardless of what the hull is painted.</summary>
-    private static readonly Vector3 WindowColor = new(1f, 0.68f, 0.22f);
+    /// <summary>Warm gold port lights, matching the reference art style's window glow. Fixed
+    /// rather than parameterized: lit windows read as interior lighting, which stays warm
+    /// regardless of what the hull is painted -- and the warm/cool contrast against a cool hull
+    /// and blue markings is exactly what makes them register as lights.</summary>
+    private static readonly Vector3 WindowColor = new(0.96f, 0.75f, 0.26f);
 
     public static void AddToScene(SceneBuilder scene, VoxelGrid grid, float voxelSize, ShipParameters p)
     {
@@ -37,7 +39,7 @@ public static class VoxelMesher
         var materials = new Dictionary<VoxelMaterial, MaterialBuilder>
         {
             [VoxelMaterial.Hull] = new MaterialBuilder("voxel_hull").WithMetallicRoughness(0.4f, 0.6f).WithBaseColor(hull),
-            [VoxelMaterial.HullDark] = new MaterialBuilder("voxel_hull_dark").WithMetallicRoughness(0.5f, 0.65f).WithBaseColor(Shade(hull, 0.5f)),
+            [VoxelMaterial.HullDark] = new MaterialBuilder("voxel_hull_dark").WithMetallicRoughness(0.5f, 0.65f).WithBaseColor(Shade(hull, 0.46f)),
             [VoxelMaterial.Panel] = new MaterialBuilder("voxel_panel").WithMetallicRoughness(0.45f, 0.6f).WithBaseColor(Shade(hull, 0.78f)),
             [VoxelMaterial.Accent] = new MaterialBuilder("voxel_accent").WithMetallicRoughness(0.4f, 0.55f).WithBaseColor(p.AccentColor.ToVector4()),
             [VoxelMaterial.Window] = new MaterialBuilder("voxel_window").WithBaseColor(new Vector4(WindowColor, 1f)).WithEmissive(WindowColor, 1.2f),

@@ -21,10 +21,14 @@ public readonly struct ShipColor
     public Vector4 ToVector4(float alpha = 1f) => new(R, G, B, alpha);
     public Vector3 ToVector3() => new(R, G, B);
 
-    public static readonly ShipColor HullDefault = FromBytes(0xC7, 0xD4, 0xDD);
-    public static readonly ShipColor AccentDefault = FromBytes(0xF2, 0xA6, 0x5C);
-    public static readonly ShipColor EngineGlowDefault = FromBytes(0x7F, 0xE0, 0xE8);
-    public static readonly ShipColor CockpitTintDefault = FromBytes(0x5F, 0xB8, 0xD6);
+    // Defaults follow the reference voxel-ship art style: a near-white, slightly cool hull with
+    // deep blue squadron markings, vivid cyan exhaust, and near-black canopy glass. Note the
+    // accent is blue, not orange -- in that style warm tones are reserved for the lit ports
+    // (see VoxelMesher.WindowColor), which is what makes them read as lights against the hull.
+    public static readonly ShipColor HullDefault = FromBytes(0xD2, 0xD9, 0xDE);
+    public static readonly ShipColor AccentDefault = FromBytes(0x2F, 0x66, 0xAD);
+    public static readonly ShipColor EngineGlowDefault = FromBytes(0x62, 0xD0, 0xFA);
+    public static readonly ShipColor CockpitTintDefault = FromBytes(0x22, 0x30, 0x3D);
 
     /// <summary>Port of vessel-forge.html's hslToHex, used by the "random ship" button.</summary>
     public static ShipColor FromHsl(float h, float s, float l)

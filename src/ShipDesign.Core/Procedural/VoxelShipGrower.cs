@@ -632,19 +632,19 @@ public static class VoxelShipGrower
 
         if (p.WingStyle is WingStyle.None or WingStyle.TwinFin) return;
 
-        // Wing stripe: a broken band running spanwise over the outboard section of each wing.
+        // Wing stripe: one narrow band across the outboard third of each wing. Deliberately a
+        // single band rather than a repeating pattern -- in this art style the markings are a
+        // sparse accent, and striping half the span turns the wing blue instead of marking it.
         var span = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
         var wingRootZ = Math.Clamp((int)MathF.Round(0.56f * (len - 1)), 0, len - 1);
         var wingRootX = env.HalfWidth[wingRootZ];
-        var band = Math.Max(2, detail * 2);
+        var bandStart = wingRootX + (int)MathF.Round(span * 0.62f);
+        var bandWidth = Math.Max(2, detail * 2);
 
-        for (var offset = span / 3; offset <= span; offset++)
+        for (var x = bandStart; x < bandStart + bandWidth; x++)
         {
-            if (offset % (band * 2) >= band) continue;
-
             for (var z = 0; z < len; z++)
             {
-                var x = wingRootX + offset;
                 var topY = TopFilledY(grid, x, z);
                 if (topY is null || topY.Value > maxHH) continue;
                 if (!IsPlating(grid, x, topY.Value, z)) continue;

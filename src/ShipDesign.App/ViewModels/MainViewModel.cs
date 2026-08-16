@@ -29,12 +29,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public IReadOnlyList<EngineStyle> EngineStyles { get; } = Enum.GetValues<EngineStyle>();
     public IReadOnlyList<CockpitStyle> CockpitStyles { get; } = Enum.GetValues<CockpitStyle>();
 
+    /// <summary>Swatches taken from the reference voxel-ship art style: a cool greyscale ramp for
+    /// hull and plating, deep blue for markings, warm amber/gold for lit ports, and cyan for
+    /// exhaust. Ordered light-to-dark then warm-to-cool so the row reads as a coherent palette.</summary>
     public IReadOnlyList<Color> PresetColors { get; } = new[]
     {
-        Color.FromRgb(0xC7, 0xD4, 0xDD), Color.FromRgb(0xF2, 0xA6, 0x5C),
-        Color.FromRgb(0x7F, 0xE0, 0xE8), Color.FromRgb(0x5F, 0xB8, 0xD6),
-        Color.FromRgb(0xE0, 0x5D, 0x5D), Color.FromRgb(0x6B, 0xC9, 0x6B),
-        Color.FromRgb(0xD8, 0xC4, 0x6A), Color.FromRgb(0x8C, 0x8C, 0x9A),
+        Color.FromRgb(0xE4, 0xE9, 0xEC), Color.FromRgb(0xD2, 0xD9, 0xDE),
+        Color.FromRgb(0x9B, 0xA6, 0xAE), Color.FromRgb(0x6E, 0x7B, 0x86),
+        Color.FromRgb(0x4A, 0x55, 0x60), Color.FromRgb(0x22, 0x30, 0x3D),
+        Color.FromRgb(0x2F, 0x66, 0xAD), Color.FromRgb(0x1B, 0x41, 0x74),
+        Color.FromRgb(0xE8, 0x9A, 0x3C), Color.FromRgb(0xF5, 0xC5, 0x42),
+        Color.FromRgb(0x62, 0xD0, 0xFA), Color.FromRgb(0x2B, 0x9E, 0xD6),
     };
 
     public HullClass HullClass { get => _parameters.HullClass; set { _parameters.HullClass = value; OnPropertyChanged(); Rebuild(); } }
@@ -143,10 +148,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.Nacelles = _random.NextDouble() > 0.35;
         _parameters.NacelleSize = 0.6f + (float)_random.NextDouble() * 0.9f;
         _parameters.Seed = _random.Next(1000, 9999);
-        _parameters.HullColor = ShipColor.RandomHsl(_random, 5, 25, 55, 85);
-        _parameters.AccentColor = ShipColor.RandomHsl(_random, 30, 60, 50, 70);
-        _parameters.EngineGlowColor = ShipColor.RandomHsl(_random, 40, 80, 55, 75);
-        _parameters.CockpitTintColor = ShipColor.RandomHsl(_random, 30, 60, 45, 70);
+        // Ranges keep a random ship inside the reference art style rather than letting it land on
+        // any hue at any lightness: a pale desaturated hull, a saturated mid-dark accent that
+        // still reads as a marking, a bright exhaust, and near-black canopy glass.
+        _parameters.HullColor = ShipColor.RandomHsl(_random, 4, 18, 72, 90);
+        _parameters.AccentColor = ShipColor.RandomHsl(_random, 45, 75, 32, 52);
+        _parameters.EngineGlowColor = ShipColor.RandomHsl(_random, 60, 95, 58, 76);
+        _parameters.CockpitTintColor = ShipColor.RandomHsl(_random, 15, 40, 12, 24);
 
         SeedText = _parameters.Seed.ToString();
         OnPropertyChanged(string.Empty); // refresh every bound property at once
