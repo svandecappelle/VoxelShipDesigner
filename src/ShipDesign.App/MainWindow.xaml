@@ -69,12 +69,8 @@
                     <StackPanel Margin="16">
 
                         <!-- Classe de coque -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="CLASSE DE COQUE" IsExpanded="True">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="CLASSE DE COQUE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
                                 <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullClasses}" SelectedItem="{Binding HullClass}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
@@ -83,15 +79,11 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Géométrie de coque -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="GÉOMÉTRIE DE COQUE" IsExpanded="True">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="GÉOMÉTRIE DE COQUE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
 
                                 <TextBlock Text="Forme de coque" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
                                 <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
@@ -168,15 +160,11 @@
                                 </Grid>
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="5" Value="{Binding Decks}" TickFrequency="1" IsSnapToTickEnabled="True" />
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Ailes -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="AILES" IsExpanded="False">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="AILES" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
                                 <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding WingStyles}" SelectedItem="{Binding WingStyle}" Margin="0,0,0,6">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
@@ -197,15 +185,11 @@
                                 </Grid>
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="60" Value="{Binding WingSweepDegrees}" />
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Propulsion -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="PROPULSION" IsExpanded="False">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="PROPULSION" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Nombre de tuyères" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
@@ -221,15 +205,11 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Cockpit -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="COCKPIT" IsExpanded="False">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="COCKPIT" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
                                 <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding CockpitStyles}" SelectedItem="{Binding CockpitStyle}" Margin="0,0,0,6">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
@@ -244,15 +224,11 @@
                                 </Grid>
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="1.8" Value="{Binding CockpitSize}" />
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Structures secondaires -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="STRUCTURES SECONDAIRES" IsExpanded="False">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="STRUCTURES SECONDAIRES" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                     <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Superstructure}" Margin="0,0,8,0" />
@@ -300,15 +276,11 @@
                                 </Grid>
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.5" Value="{Binding NacelleSweep}" />
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Détails de surface -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="DÉTAILS DE SURFACE" IsExpanded="False">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="DÉTAILS DE SURFACE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                     <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Greebles}" Margin="0,0,8,0" />
@@ -340,15 +312,11 @@
                                     <Button Grid.Column="2" Content="↻" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding RerollSeedCommand}" Margin="4,0,0,0" />
                                 </Grid>
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
                         <!-- Livrée -->
-                        <Border Style="{StaticResource PanelBorderStyle}">
+                        <Expander Style="{StaticResource AccordionStyle}" Header="LIVRÉE" IsExpanded="False">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="LIVRÉE" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
 
                                 <TextBlock Text="Coque" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
                                 <ItemsControl ItemsSource="{Binding PresetColors}" Margin="0,0,0,10">
@@ -406,28 +374,13 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-                        </Border>
+                        </Expander>
 
+                        <!-- Rendering and exporting act on the finished ship rather than describing
+                             it, so they live over the viewport with the other view controls. What
+                             stays here is the one action that changes the parameters themselves. -->
                         <Button Content="⚄ VAISSEAU ALÉATOIRE" Style="{StaticResource SecondaryButtonStyle}"
-                                Command="{Binding RandomizeShipCommand}" Margin="0,0,0,8" />
-
-                        <Button Content="◉ RENDU STUDIO" Style="{StaticResource SecondaryButtonStyle}"
-                                Click="OnOpenStudio" Margin="0,0,0,12" />
-
-                        <!-- Export -->
-                        <Border Style="{StaticResource PanelBorderStyle}" Margin="0">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Rectangle Width="6" Height="6" Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="EXPORT" Style="{StaticResource PanelTitleStyle}" Margin="0" />
-                                </StackPanel>
-                                <Button Content="EXPORTER EN .GLB" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding ExportCommand}" />
-                                <TextBlock Margin="0,9,0,0" TextWrapping="Wrap" FontSize="10" LineHeight="16" Foreground="{StaticResource TextDimBrush}">
-                                    Le fichier .glb s'importe directement dans Unity : glissez-le dans votre dossier
-                                    <Run Foreground="{StaticResource TextPrimaryBrush}">Assets</Run>.
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
+                                Command="{Binding RandomizeShipCommand}" Margin="0,4,0,4" />
 
                     </StackPanel>
                 </ScrollViewer>
@@ -453,6 +406,23 @@
                                           Thickness="0.02" Fill="#2A5570" />
                     <ModelVisual3D Content="{Binding ShipModel}" />
                 </h:HelixViewport3D>
+
+                <!-- Actions on the finished ship, bottom-right of the viewport: the render and the
+                     export both operate on what is on screen, so they sit with it rather than at
+                     the end of a long parameter list. -->
+                <!-- Raised clear of the bottom edge so it sits above the viewport's navigation cube
+                     rather than on top of it. -->
+                <Border Style="{StaticResource HudPanelStyle}" Padding="10,9"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="16,0,16,96">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="◉ RENDU STUDIO" Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OnOpenStudio" Padding="12,8"
+                                ToolTip="Ouvre une vue séparée avec occlusion ambiante et halo composité" />
+                        <Button Content="EXPORTER .GLB" Style="{StaticResource PrimaryButtonStyle}"
+                                Command="{Binding ExportCommand}" FontSize="11.5" Padding="14,8" Margin="8,0,0,0"
+                                ToolTip="Le fichier .glb s'importe directement dans Unity : glissez-le dans votre dossier Assets" />
+                    </StackPanel>
+                </Border>
 
                 <!-- HUD: stats, bottom-left -->
                 <Border Style="{StaticResource HudPanelStyle}" HorizontalAlignment="Left" VerticalAlignment="Bottom"

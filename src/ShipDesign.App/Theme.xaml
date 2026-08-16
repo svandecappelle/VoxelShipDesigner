@@ -79,6 +79,74 @@
         <Setter Property="Padding" Value="15,11" />
     </Style>
 
+    <!-- ============ Accordion ============ -->
+
+    <!-- Collapsible version of PanelBorderStyle. The sidebar carries far more parameters than fit
+         on screen at once, and scrolling past sections you are not editing to reach one you are is
+         the actual cost; folding them away is what makes the panel navigable. -->
+    <Style x:Key="AccordionStyle" TargetType="Expander">
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <Border Background="{StaticResource BgPanelAltBrush}"
+                            BorderBrush="{StaticResource LineCyanDimBrush}"
+                            BorderThickness="1" CornerRadius="2">
+                        <StackPanel>
+                            <ToggleButton x:Name="HeaderButton" Content="{TemplateBinding Header}"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          Cursor="Hand" Focusable="False">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="HeaderBd" Background="Transparent" Padding="14,11">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Rectangle Grid.Column="0" Width="6" Height="6" VerticalAlignment="Center"
+                                                           Fill="{StaticResource AccentAmberBrush}" Margin="0,0,7,0" />
+                                                <TextBlock Grid.Column="1" Text="{TemplateBinding Content}"
+                                                           Style="{StaticResource PanelTitleStyle}" Margin="0" VerticalAlignment="Center" />
+                                                <!-- Rotated rather than swapped for a different glyph, so the
+                                                     marker keeps the same weight in both states. -->
+                                                <TextBlock x:Name="Chevron" Grid.Column="2" Text="⌃" FontSize="12"
+                                                           Foreground="{StaticResource LineCyanBrush}" VerticalAlignment="Center"
+                                                           RenderTransformOrigin="0.5,0.5" />
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="False">
+                                                <Setter TargetName="Chevron" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <RotateTransform Angle="180" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HeaderBd" Property="Background" Value="{StaticResource BgPanelBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <Border x:Name="ContentBd" Padding="14,0,14,12">
+                                <ContentPresenter />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="False">
+                            <Setter TargetName="ContentBd" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ Buttons ============ -->
 
     <Style x:Key="SecondaryButtonStyle" TargetType="Button">
