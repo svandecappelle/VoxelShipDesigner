@@ -91,6 +91,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public float NacelleWidth { get => _parameters.NacelleWidth; set { _parameters.NacelleWidth = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleLength { get => _parameters.NacelleLength; set { _parameters.NacelleLength = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleSpacing { get => _parameters.NacelleSpacing; set { _parameters.NacelleSpacing = value; OnPropertyChanged(); Rebuild(); } }
+    public float NacelleRise { get => _parameters.NacelleRise; set { _parameters.NacelleRise = value; OnPropertyChanged(); Rebuild(); } }
+    public float NacelleSweep { get => _parameters.NacelleSweep; set { _parameters.NacelleSweep = value; OnPropertyChanged(); Rebuild(); } }
 
     public string SeedText { get => _seedText; set { _seedText = value; OnPropertyChanged(); } }
 
@@ -181,6 +183,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.NacelleWidth = 0.6f + (float)_random.NextDouble() * 0.9f;
         _parameters.NacelleLength = 0.6f + (float)_random.NextDouble() * 0.9f;
         _parameters.NacelleSpacing = 0.5f + (float)_random.NextDouble() * 1.3f;
+        // Straddle both mounting idioms: slung underneath, or raised and swept back.
+        _parameters.NacelleRise = -1.2f + (float)_random.NextDouble() * 2.6f;
+        _parameters.NacelleSweep = (float)_random.NextDouble() * 0.4f;
         _parameters.Seed = _random.Next(1000, 9999);
         // Ranges keep a random ship inside the reference art style rather than letting it land on
         // any hue at any lightness: a pale desaturated hull, a saturated mid-dark accent that

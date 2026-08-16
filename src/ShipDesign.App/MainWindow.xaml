@@ -286,7 +286,19 @@
                                     <TextBlock Text="Espacement nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSpacing, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="2.5" Value="{Binding NacelleSpacing}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="2.5" Value="{Binding NacelleSpacing}" Margin="0,0,0,12" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Hauteur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleRise, StringFormat='{}{0:+0.0;-0.0;0.0}'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-1.5" Maximum="1.5" Value="{Binding NacelleRise}" Margin="0,0,0,12" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Recul nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSweep, StringFormat='{}{0:0%}'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.5" Value="{Binding NacelleSweep}" />
                             </StackPanel>
                         </Border>
 

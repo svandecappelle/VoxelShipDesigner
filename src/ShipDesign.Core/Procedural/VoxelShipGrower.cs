@@ -636,23 +636,20 @@ public static class VoxelShipGrower
         // proportionally the same at any voxel resolution rather than shrinking as voxels get finer.
         var gap = Math.Max(1, (int)MathF.Round(maxHH * 0.6f * p.NacelleSpacing));
         var nacelleX = hullHalfWidth + radius + gap;
-        var nacelleY = -radius - 1;
 
-        // Pylon: a thin blade bridging hull to pod, angled down so the pod hangs below the wing
-        // line. Its thickness follows the detail unit -- at high resolution and wide spacing a
-        // fixed 3-voxel blade would read as a thread holding the pod on.
+        // Where the pod sits relative to its root. Rise lifts it above the hull instead of slinging
+        // it underneath, sweep pushes it aft: together they give the raised, swept-back mounting
+        // that reads as a warp nacelle rather than an engine pod bolted under a wing.
+        var nacelleY = (int)MathF.Round((radius + 1) * p.NacelleRise);
+        var nacelleZ = centerZ + (int)MathF.Round(len * 0.5f * p.NacelleSweep);
+        nacelleZ = Math.Clamp(nacelleZ, halfLength, len - 1);
+
         var pylonHalfThickness = Math.Max(1, DetailUnit(len));
-        for (var x = hullHalfWidth; x <= nacelleX; x++)
-        {
-            var drop = (int)MathF.Round((x - hullHalfWidth) / (float)Math.Max(1, nacelleX - hullHalfWidth) * -nacelleY);
-            for (var dz = -pylonHalfThickness; dz <= pylonHalfThickness; dz++)
-                for (var dy = -drop; dy <= 0; dy++)
-                    grid.SetMirrored(x, dy, centerZ + dz, VoxelMaterial.HullDark);
-        }
+        GrowPylon(grid, hullHalfWidth, centerZ, nacelleX, nacelleY, nacelleZ, pylonHalfThickness);
 
         for (var dz = -halfLength; dz <= halfLength; dz++)
         {
-            var z = centerZ + dz;
+            var z = nacelleZ + dz;
 
             // Taper the pod toward both ends so it reads as a streamlined engine pod.
             var t = MathF.Abs(dz) / (float)halfLength;
@@ -665,6 +662,32 @@ public static class VoxelShipGrower
                     if (dx * dx + dy * dy > r * r + r) continue;
                     grid.SetMirrored(nacelleX + dx, nacelleY + dy, z, material);
                 }
+        }
+    }
+
+    /// <summary>
+    /// A strut running from the hull flank to wherever the pod ended up, interpolating all three
+    /// axes at once. The pylon has to be general in 3D rather than a purely vertical drop: once a
+    /// pod can be raised *and* swept aft, a strut that only descends leaves it floating.
+    ///
+    /// Stepping along the longest axis guarantees consecutive samples move at most one voxel on
+    /// it and no more on the others, so the boxes always overlap and the pod stays attached
+    /// however steep the sweep.
+    /// </summary>
+    private static void GrowPylon(VoxelGrid grid, int rootX, int rootZ, int tipX, int tipY, int tipZ, int halfThickness)
+    {
+        var steps = Math.Max(1, Math.Max(Math.Abs(tipX - rootX), Math.Max(Math.Abs(tipY), Math.Abs(tipZ - rootZ))));
+
+        for (var i = 0; i <= steps; i++)
+        {
+            var t = i / (float)steps;
+            var x = (int)MathF.Round(rootX + (tipX - rootX) * t);
+            var y = (int)MathF.Round(tipY * t);
+            var z = (int)MathF.Round(rootZ + (tipZ - rootZ) * t);
+
+            for (var dy = -halfThickness; dy <= halfThickness; dy++)
+                for (var dz = -halfThickness; dz <= halfThickness; dz++)
+                    grid.SetMirrored(x, y + dy, z + dz, VoxelMaterial.HullDark);
         }
     }
 

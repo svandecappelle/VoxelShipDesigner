@@ -61,6 +61,16 @@ public sealed class ShipParameters
     /// them on long pylons well clear of it.</summary>
     public float NacelleSpacing { get; set; } = 1f;
 
+    /// <summary>Vertical offset of the pods relative to the hull's mid-line, as a multiple of the
+    /// pod radius. Negative slings them underneath; positive lifts them above the hull on raised
+    /// pylons, the arrangement Star Trek's ships use.</summary>
+    public float NacelleRise { get; set; } = -1f;
+
+    /// <summary>How far aft of its pylon root each pod sits, as a fraction of the ship's length.
+    /// Together with <see cref="NacelleRise"/> this gives the swept-back, raised pylon that reads
+    /// as a warp nacelle rather than a slung-under engine pod.</summary>
+    public float NacelleSweep { get; set; } = 0f;
+
     public ShipColor HullColor { get; set; } = ShipColor.HullDefault;
     public ShipColor AccentColor { get; set; } = ShipColor.AccentDefault;
     public ShipColor EngineGlowColor { get; set; } = ShipColor.EngineGlowDefault;
