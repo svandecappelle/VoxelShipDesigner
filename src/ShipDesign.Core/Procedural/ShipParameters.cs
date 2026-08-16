@@ -29,7 +29,14 @@ public sealed class ShipParameters
     public float SuperstructureSize { get; set; } = 1f;
 
     public bool Nacelles { get; set; } = true;
-    public float NacelleSize { get; set; } = 1f;
+
+    /// <summary>Pod cross-section scale. Split from <see cref="NacelleLength"/> so a pod can be
+    /// stubby-and-fat or long-and-slim, which is a big part of what distinguishes an engine pod
+    /// from a drop tank -- a single "size" knob could only scale both together.</summary>
+    public float NacelleWidth { get; set; } = 1f;
+
+    /// <summary>Pod length along the hull axis.</summary>
+    public float NacelleLength { get; set; } = 1f;
 
     public ShipColor HullColor { get; set; } = ShipColor.HullDefault;
     public ShipColor AccentColor { get; set; } = ShipColor.AccentDefault;

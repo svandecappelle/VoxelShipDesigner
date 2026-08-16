@@ -220,10 +220,16 @@
                                 </StackPanel>
 
                                 <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Taille nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSize, StringFormat='{}{0:0.0}×'}" />
+                                    <TextBlock Text="Largeur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleWidth, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleSize}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleWidth}" Margin="0,0,0,12" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Longueur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleLength, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleLength}" />
                             </StackPanel>
                         </Border>
 

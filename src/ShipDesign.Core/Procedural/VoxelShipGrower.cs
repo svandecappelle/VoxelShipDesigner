@@ -336,8 +336,8 @@ public static class VoxelShipGrower
 
     private static void GrowNacelles(VoxelGrid grid, ShipParameters p, Envelope env, Layout layout, int len, int maxHH)
     {
-        var radius = Math.Max(2, (int)MathF.Round(maxHH * 0.75f * p.NacelleSize));
-        var halfLength = Math.Max(4, (int)MathF.Round(len * 0.2f * p.NacelleSize));
+        var radius = Math.Max(2, (int)MathF.Round(maxHH * 0.75f * p.NacelleWidth));
+        var halfLength = Math.Max(4, (int)MathF.Round(len * 0.2f * p.NacelleLength));
         var centerZ = (int)MathF.Round(Math.Clamp(layout.NacelleCenter, 0.35f, 0.8f) * (len - 1));
         var hullHalfWidth = env.HalfWidth[Math.Clamp(centerZ, 0, len - 1)];
         var nacelleX = hullHalfWidth + radius + 3;

@@ -66,7 +66,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public float SuperstructureSize { get => _parameters.SuperstructureSize; set { _parameters.SuperstructureSize = value; OnPropertyChanged(); Rebuild(); } }
 
     public bool Nacelles { get => _parameters.Nacelles; set { _parameters.Nacelles = value; OnPropertyChanged(); Rebuild(); } }
-    public float NacelleSize { get => _parameters.NacelleSize; set { _parameters.NacelleSize = value; OnPropertyChanged(); Rebuild(); } }
+    public float NacelleWidth { get => _parameters.NacelleWidth; set { _parameters.NacelleWidth = value; OnPropertyChanged(); Rebuild(); } }
+    public float NacelleLength { get => _parameters.NacelleLength; set { _parameters.NacelleLength = value; OnPropertyChanged(); Rebuild(); } }
 
     public string SeedText { get => _seedText; set { _seedText = value; OnPropertyChanged(); } }
 
@@ -146,7 +147,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.Superstructure = _random.NextDouble() > 0.2;
         _parameters.SuperstructureSize = 0.7f + (float)_random.NextDouble() * 0.8f;
         _parameters.Nacelles = _random.NextDouble() > 0.35;
-        _parameters.NacelleSize = 0.6f + (float)_random.NextDouble() * 0.9f;
+        // Drawn independently, so random ships get stubby and elongated pods rather than only
+        // uniformly-scaled ones -- the reason the knob was split in the first place.
+        _parameters.NacelleWidth = 0.6f + (float)_random.NextDouble() * 0.9f;
+        _parameters.NacelleLength = 0.6f + (float)_random.NextDouble() * 0.9f;
         _parameters.Seed = _random.Next(1000, 9999);
         // Ranges keep a random ship inside the reference art style rather than letting it land on
         // any hue at any lightness: a pale desaturated hull, a saturated mid-dark accent that
