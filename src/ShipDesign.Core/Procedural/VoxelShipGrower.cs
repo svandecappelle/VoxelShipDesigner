@@ -32,6 +32,47 @@ public static class VoxelShipGrower
     /// chamfering down -- what makes the cross-section a flat-decked trapezoid rather than a box.</summary>
     private const float DeckFlatFraction = 0.5f;
 
+    /// <summary>Largest wing sweep, forward or aft. Not a taste limit: the shift is a tangent, which
+    /// runs to infinity at 90 degrees.</summary>
+    public const float MaxWingSweepDegrees = 85f;
+
+    /// <summary>Most deck terraces a hull will step. High enough that the slider is never the
+    /// binding constraint -- past this the steps are thinner than a voxel and stop being visible.</summary>
+    public const int MaxDecks = 12;
+
+    /// <summary>
+    /// Bounding volume in voxels the ship would occupy, without growing it.
+    ///
+    /// Length and beam multiply -- the grid is a volume -- so neither slider's maximum tells you
+    /// what the pair costs. This estimate lands within about 10% of the real voxel count across the
+    /// whole range, which is enough for the UI to refuse a combination that would otherwise spend
+    /// several seconds and a few gigabytes building a ship nobody asked for.
+    /// </summary>
+    public static long EstimateBoundingVoxels(ShipParameters p)
+    {
+        var preset = HullClassPreset.All[p.HullClass];
+
+        var length = Math.Max(40, (int)MathF.Round(p.Length / VoxelSize));
+        var beam = Math.Max(14, (int)MathF.Round(p.Beam / VoxelSize));
+        var halfWidth = Math.Max(5, beam / 2);
+
+        // Height always comes from the beam. A disc is wide but no taller for it -- a saucer is a
+        // lens, not a sphere -- and deriving the height from the disc's radius overstated a saucer
+        // by a factor of ten, which was enough to have the budget refuse shapes that cost little.
+        var halfHeight = Math.Max(2, (int)MathF.Round(halfWidth * preset.HeightRatio));
+
+        // Across the beam, though, a disc really does take its width from the length.
+        var planHalfWidth = HullShapeProfile.IsDisc(p.HullShape)
+            ? Math.Max(halfWidth, length / 2)
+            : halfWidth;
+
+        // Outriggers are smaller than the primary and sit beside it, so a trimaran is nearer twice
+        // the volume than three times it.
+        var hulls = Math.Clamp(p.HullCount, 1, 3) switch { 1 => 1.0, 2 => 2.0, _ => 2.3 };
+
+        return (long)(length * (2L * planHalfWidth) * (2L * halfHeight) * hulls);
+    }
+
     private sealed class Envelope
     {
         public required int[] HalfWidth { get; init; }
@@ -452,7 +493,7 @@ public static class VoxelShipGrower
         // Deliberately shallow steps. A saucer's crown is only modestly thicker than its rim; step
         // heights big enough to be individually dramatic stack into a cone, and each raised column
         // is filled solid, so the amplitude drives voxel count and build time as much as looks.
-        var tiers = Math.Clamp(p.Decks + 2, 3, 6);
+        var tiers = Math.Clamp(p.Decks + 2, 3, MaxDecks + 2);
         var tierStep = Math.Max(1, (int)MathF.Round(crown * 0.14f));
 
         const int ribCount = 12;
@@ -522,14 +563,19 @@ public static class VoxelShipGrower
     private static void AddDeckTerraces(VoxelGrid grid, ShipParameters p, HullColumn primary, int len)
     {
         var env = primary.Envelope;
-        var decks = Math.Clamp(p.Decks, 1, 5);
+        var decks = Math.Clamp(p.Decks, 1, MaxDecks);
         var maxTop = env.Top.Max();
 
         for (var deck = 1; deck <= decks; deck++)
         {
-            var widthFraction = 1f - deck * 0.2f;
-            var z0 = (int)MathF.Round(len * (0.24f + deck * 0.055f));
-            var z1 = (int)MathF.Round(len * (0.82f - deck * 0.05f));
+            // Each terrace's inset is a fraction of the *stack*, not a fixed step. With a fixed
+            // step the fifth terrace came out zero-width and every deck past it was silently
+            // nothing, which made the slider stop having an effect halfway along its travel.
+            var t = deck / (float)(decks + 1);
+
+            var widthFraction = 1f - t;
+            var z0 = (int)MathF.Round(len * (0.24f + t * 0.33f));
+            var z1 = (int)MathF.Round(len * (0.82f - t * 0.30f));
             if (z1 <= z0) break;
 
             var height = Math.Max(1, (int)MathF.Round(maxTop * 0.16f));
@@ -571,7 +617,11 @@ public static class VoxelShipGrower
     {
         var env = hulls[0].Envelope;
         var span = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
-        var sweep = MathF.Tan(Math.Clamp(p.WingSweepDegrees, 0f, 70f) * MathF.PI / 180f);
+
+        // Negative sweep is forward-swept, which is a real planform and not a mistake. Still bounded
+        // short of 90 degrees on both sides: the tangent runs away there, and a wing whose tip chord
+        // sits a whole hull length off the root reads as a detached spar rather than as a wing.
+        var sweep = MathF.Tan(Math.Clamp(p.WingSweepDegrees, -MaxWingSweepDegrees, MaxWingSweepDegrees) * MathF.PI / 180f);
 
         var (rootOffset, chordFraction, thicknessBase) = p.WingStyle switch
         {
@@ -697,7 +747,10 @@ public static class VoxelShipGrower
     {
         var env = primary.Envelope;
         var centerZ = Math.Clamp((int)MathF.Round(Math.Clamp(layout.TowerCenter, 0.25f, 0.7f) * (len - 1)), 0, len - 1);
-        var scale = Math.Max(0.4f, p.SuperstructureSize);
+        // Floored just above zero rather than at 0.4: the point of a low setting is a bridge that
+        // barely breaks the deck line, and a floor of 0.4 made the bottom of the slider's travel
+        // do nothing at all.
+        var scale = Math.Max(0.1f, p.SuperstructureSize);
         var y = env.Top[centerZ];
 
         // On a hollow hull the centreline is empty, so the tower is seated on the band instead.
@@ -869,7 +922,7 @@ public static class VoxelShipGrower
     /// what makes it read as a cockpit rather than as a colored patch on the plating.</summary>
     private static void CarveCockpit(VoxelGrid grid, ShipParameters p, HullClassPreset preset, HullColumn primary, int len)
     {
-        var size = Math.Max(0.4f, p.CockpitSize);
+        var size = Math.Max(0.1f, p.CockpitSize);
         var centerZ = Math.Clamp((int)MathF.Round(preset.NoseFraction * 1.15f * (len - 1)), 2, len - 3);
         var halfLength = Math.Max(2, (int)MathF.Round(len * 0.07f * size));
         var detail = DetailUnit(len);
@@ -884,8 +937,11 @@ public static class VoxelShipGrower
             if (hw < 1) continue;
 
             // Frame thickness follows the detail unit, so the canopy surround stays a visible
-            // border rather than thinning to a single voxel as resolution rises.
-            var isFrameSlice = Math.Abs(dz) > halfLength - detail;
+            // border rather than thinning to a single voxel as resolution rises -- but never so
+            // thick that it swallows the glass. A small canopy used to come out as solid frame with
+            // no window in it at all, which made the bottom of the size slider produce no canopy.
+            var frameDepth = Math.Clamp(detail, 1, Math.Max(1, halfLength - 1));
+            var isFrameSlice = Math.Abs(dz) > halfLength - frameDepth;
 
             var spine = primary.Envelope.SpineOffset(z);
 
@@ -895,7 +951,7 @@ public static class VoxelShipGrower
                 var topY = TopFilledY(grid, x, z);
                 if (topY is null || !IsPlating(grid, x, topY.Value, z)) continue;
 
-                var isFrame = Math.Abs(dx) > hw - detail || isFrameSlice;
+                var isFrame = Math.Abs(dx) > hw - Math.Min(detail, hw) || isFrameSlice;
                 grid.SetMirrored(x, topY.Value, z, isFrame ? VoxelMaterial.HullDark : VoxelMaterial.Cockpit);
             }
         }

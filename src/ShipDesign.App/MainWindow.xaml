@@ -114,7 +114,7 @@
                                     <TextBlock Text="Écartement des coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullSpacing, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="2.5" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="6" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
 
                                 <!-- Only a trimaran has hulls distinct from the main one: a catamaran
                                      is two copies of it, so a second shape picker would do nothing. -->
@@ -140,13 +140,13 @@
                                     <TextBlock Text="Longueur" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Length, StringFormat='{}{0:0.0} M'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="6" Maximum="40" Value="{Binding Length}" Margin="0,0,0,10" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="4" Maximum="90" Value="{Binding Length}" Margin="0,0,0,10" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Maître-bau (largeur)" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Beam, StringFormat='{}{0:0.0} M'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="10" Value="{Binding Beam}" Margin="0,0,0,10" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.6" Maximum="18" Value="{Binding Beam}" Margin="0,0,0,10" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Effilement du nez" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
@@ -158,7 +158,7 @@
                                     <TextBlock Text="Lignes de pont" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Decks}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="5" Value="{Binding Decks}" TickFrequency="1" IsSnapToTickEnabled="True" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="12" Value="{Binding Decks}" TickFrequency="1" IsSnapToTickEnabled="True" />
                             </StackPanel>
                         </Expander>
 
@@ -177,13 +177,13 @@
                                     <TextBlock Text="Envergure" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSpan, StringFormat='{}{0:0.0} M'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="2" Maximum="14" Value="{Binding WingSpan}" Margin="0,0,0,10" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="36" Value="{Binding WingSpan}" Margin="0,0,0,10" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Angle de flèche" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSweepDegrees, StringFormat='{}{0:0}°'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="60" Value="{Binding WingSweepDegrees}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-30" Maximum="85" Value="{Binding WingSweepDegrees}" />
                             </StackPanel>
                         </Expander>
 
@@ -195,7 +195,7 @@
                                     <TextBlock Text="Nombre de tuyères" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding EngineCount}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="4" Value="{Binding EngineCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="10" Value="{Binding EngineCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
 
                                 <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding EngineStyles}" SelectedItem="{Binding EngineStyle}">
                                     <ListBox.ItemTemplate>
@@ -222,7 +222,7 @@
                                     <TextBlock Text="Taille" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding CockpitSize, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="1.8" Value="{Binding CockpitSize}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.15" Maximum="4" Value="{Binding CockpitSize}" />
                             </StackPanel>
                         </Expander>
 
@@ -239,7 +239,7 @@
                                     <TextBlock Text="Taille tourelle" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SuperstructureSize, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="2" Value="{Binding SuperstructureSize}" Margin="0,0,0,12" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.15" Maximum="5" Value="{Binding SuperstructureSize}" Margin="0,0,0,12" />
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                     <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Nacelles}" Margin="0,0,8,0" />
@@ -250,31 +250,31 @@
                                     <TextBlock Text="Largeur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleWidth, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleWidth}" Margin="0,0,0,12" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="4" Value="{Binding NacelleWidth}" Margin="0,0,0,12" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Longueur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleLength, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="1.8" Value="{Binding NacelleLength}" Margin="0,0,0,12" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="4" Value="{Binding NacelleLength}" Margin="0,0,0,12" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Espacement nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSpacing, StringFormat='{}{0:0.0}×'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="2.5" Value="{Binding NacelleSpacing}" Margin="0,0,0,12" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.05" Maximum="6" Value="{Binding NacelleSpacing}" Margin="0,0,0,12" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Hauteur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleRise, StringFormat='{}{0:+0.0;-0.0;0.0}'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-1.5" Maximum="1.5" Value="{Binding NacelleRise}" Margin="0,0,0,12" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-4" Maximum="4" Value="{Binding NacelleRise}" Margin="0,0,0,12" />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Recul nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSweep, StringFormat='{}{0:0%}'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.5" Value="{Binding NacelleSweep}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.95" Value="{Binding NacelleSweep}" />
                             </StackPanel>
                         </Expander>
 
@@ -297,7 +297,7 @@
                                     <TextBlock Text="Tourelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding TurretCount}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="8" Value="{Binding TurretCount}"
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="24" Value="{Binding TurretCount}"
                                         TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
 
                                 <TextBlock Text="Graine (seed)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />

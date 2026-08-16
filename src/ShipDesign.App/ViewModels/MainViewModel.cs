@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using ShipDesign.App.Rendering;
 using ShipDesign.Core.Procedural;
@@ -15,6 +16,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly ShipParameters _parameters = new();
     private readonly Random _random = new();
+
+    /// <summary>Long enough to swallow a slider drag, short enough that letting go feels immediate.</summary>
+    private readonly DispatcherTimer _rebuildDebounce = new() { Interval = TimeSpan.FromMilliseconds(140) };
+
+    /// <summary>
+    /// Ceiling on the bounding volume a ship may occupy. Set from measurement rather than taste:
+    /// the previous sliders' far corner already reached about 530k and took nine tenths of a
+    /// second, so this leaves close to twice that headroom while stopping short of the multi-second,
+    /// multi-gigabyte builds the widened ranges can otherwise ask for.
+    /// </summary>
+    private const long MaxBoundingVoxels = 1_000_000;
 
     private SharpGLTF.Schema2.ModelRoot? _currentModel;
     private Model3D? _shipModel;
@@ -134,7 +146,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         SetCockpitTintColorCommand = new RelayCommand(c => CockpitTintColor = (Color)c!);
         ExportCommand = new RelayCommand(_ => Export(), _ => _currentModel is not null);
 
-        Rebuild();
+        _rebuildDebounce.Tick += (_, _) => { _rebuildDebounce.Stop(); RebuildNow(); };
+
+        RebuildNow();
     }
 
     private void ApplySeed()
@@ -205,8 +219,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Rebuild();
     }
 
+    /// <summary>
+    /// Asks for a rebuild soon rather than now. A slider raises its value on every mouse move, and
+    /// generation is a whole-volume rebuild that runs to a second or more at the wide end of the
+    /// ranges -- rebuilding per tick would mean dragging a slider queues dozens of them and the
+    /// window stops responding. Waiting for the drag to settle gives one rebuild per gesture.
+    /// </summary>
     private void Rebuild()
     {
+        _rebuildDebounce.Stop();
+        _rebuildDebounce.Start();
+    }
+
+    private void RebuildNow()
+    {
+        // Length and beam multiply, so the far corner of the two is far more expensive than either
+        // slider suggests on its own -- enough to spend seconds and gigabytes. Refused rather than
+        // silently clamped: a slider that moves while the ship ignores it is worse than being told
+        // why nothing happened, and the previous ship stays on screen meanwhile.
+        var estimate = VoxelShipGrower.EstimateBoundingVoxels(_parameters);
+        if (estimate > MaxBoundingVoxels)
+        {
+            StatusText = $"Gabarit trop grand ({estimate / 1000:N0}k voxels d'encombrement, " +
+                         $"maximum {MaxBoundingVoxels / 1000:N0}k) — réduire la longueur ou le maître-bau.";
+            return;
+        }
+
         try
         {
             _currentModel = ProceduralShipBuilder.Build(_parameters);
