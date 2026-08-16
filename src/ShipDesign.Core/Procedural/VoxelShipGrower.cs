@@ -61,7 +61,7 @@ public static class VoxelShipGrower
     /// <summary>One parallel hull: where its centreline sits in X, and its own envelope. Each hull
     /// carries a full envelope rather than a scale factor on a shared one, because hulls can have
     /// different planforms -- a scale factor can only ever produce a smaller copy of one shape.</summary>
-    private sealed record HullColumn(int XOffset, Envelope Envelope);
+    private sealed record HullColumn(int XOffset, Envelope Envelope, HullShape Shape);
 
     /// <summary>
     /// Where the parallel hulls sit. Only offsets at or right of the centreline are listed:
@@ -79,7 +79,7 @@ public static class VoxelShipGrower
         var primary = GrowEnvelope(rng, p, preset, p.HullShape, len, maxHalfWidth, maxHalfHeight);
 
         if (count == 1)
-            return new[] { new HullColumn(0, primary) };
+            return new[] { new HullColumn(0, primary, p.HullShape) };
 
         // Space the hulls off their *actual* widths rather than the beam: a saucer is far wider
         // than its beam implies, and offsets computed from the beam would overlap the hulls.
@@ -89,15 +89,15 @@ public static class VoxelShipGrower
         // A catamaran is two copies of the primary hull, so it needs no second envelope -- the
         // single entry at +d is mirrored into the port hull.
         if (count == 2)
-            return new[] { new HullColumn(primaryHalfWidth + gap, primary) };
+            return new[] { new HullColumn(primaryHalfWidth + gap, primary, p.HullShape) };
 
         const float outriggerScale = 0.62f;
         var outrigger = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, len, maxHalfWidth, maxHalfHeight, outriggerScale);
 
         return new[]
         {
-            new HullColumn(0, primary),
-            new HullColumn(primaryHalfWidth + gap + outrigger.HalfWidth.Max(), outrigger),
+            new HullColumn(0, primary, p.HullShape),
+            new HullColumn(primaryHalfWidth + gap + outrigger.HalfWidth.Max(), outrigger, p.SecondaryHullShape),
         };
     }
 
@@ -154,7 +154,17 @@ public static class VoxelShipGrower
         var primary = hulls[0];
 
         FillHull(grid, hulls, lengthVoxels);
-        AddDeckTerraces(grid, p, primary, lengthVoxels);
+
+        // Each hull takes the structural idiom its planform calls for: discs get concentric decks
+        // and radial ribs, elongated hulls get fore-and-aft terraces. Discs are structured
+        // individually rather than only on the primary, since an unribbed outrigger disc next to a
+        // ribbed centre one would read as an unfinished part.
+        foreach (var hull in hulls)
+            if (HullShapeProfile.IsDisc(hull.Shape))
+                GrowDiscStructure(grid, p, hull, lengthVoxels);
+
+        if (!HullShapeProfile.IsDisc(primary.Shape))
+            AddDeckTerraces(grid, p, primary, lengthVoxels);
 
         // Spars must go in before anything else reads the surface: without them the hulls are
         // separate solids, and the ship would export as two or three unconnected pieces.
@@ -173,15 +183,20 @@ public static class VoxelShipGrower
         if (p.Superstructure && p.HullClass != HullClass.Fighter)
             GrowSuperstructure(grid, p, primary, layout, lengthVoxels, maxHalfHeight);
 
-        if (p.TurretCount > 0)
-            GrowTurrets(grid, p, primary, layout, lengthVoxels);
-
         GrowEngines(grid, p, hulls, lengthVoxels, maxHalfHeight);
 
         if (p.CockpitStyle != CockpitStyle.None)
             CarveCockpit(grid, p, preset, primary, lengthVoxels);
 
         DetailPass(grid, rng, p, hulls, lengthVoxels, maxHalfHeight);
+
+        // Turrets go on after the surface detail, not before. The carving pass decides what is
+        // hull deck by comparing height against Top[z] -- a per-slice maximum -- and on a disc the
+        // deck height varies a lot across one slice, so an outboard turret sits below the crown of
+        // its own slice and gets carved away as if it were deck. Mounting them last sidesteps the
+        // proxy entirely instead of trying to make it smarter.
+        if (p.TurretCount > 0)
+            GrowTurrets(grid, p, primary, layout, lengthVoxels);
 
         return grid;
     }
@@ -323,24 +338,43 @@ public static class VoxelShipGrower
 
                 for (var dx = -hw; dx <= hw; dx++)
                 {
-                    // Skip the hollow core, if this slice has one.
-                    if (inner > 0 && Math.Abs(dx) < inner) continue;
+                    if (!Section(env, z, dx, out var yTop, out var yBottom)) continue;
 
-                    // On a hollow slice the section tapers toward *both* rims, not just the outer
-                    // one, so the ring reads as a band with a rounded inner edge rather than a
-                    // plate with a hole punched through it.
-                    var fromOuter = Shoulder(Math.Abs(dx), hw);
-                    var shoulder = inner > 0
-                        ? MathF.Max(fromOuter, Shoulder(hw - Math.Abs(dx) + inner, hw))
-                        : fromOuter;
-
-                    var yTop = (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
-                    var yBottom = (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
                     for (var y = -yBottom; y <= yTop; y++)
                         grid.SetMirrored(hull.XOffset + dx, y, z, VoxelMaterial.Hull);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Bare-hull section at one column: the deck and keel heights <see cref="FillHull"/> lays down,
+    /// or false where the column is inside a hollow core. Shared with the disc pass so the two
+    /// cannot drift, and so that pass can compute the surface directly instead of scanning the
+    /// grid for it -- the largest hulls have thousands of columns, and the scan showed up in the
+    /// build time as soon as discs made those hulls tall.
+    /// </summary>
+    private static bool Section(Envelope env, int z, int dx, out int yTop, out int yBottom)
+    {
+        yTop = 0;
+        yBottom = 0;
+
+        var hw = env.HalfWidth[z];
+        var inner = env.InnerHalfWidth[z];
+        var offset = Math.Abs(dx);
+        if (hw < 0 || offset > hw) return false;
+        if (inner > 0 && offset < inner) return false;
+
+        // On a hollow slice the section tapers toward *both* rims, not just the outer one, so the
+        // ring reads as a band with a rounded inner edge rather than a plate with a hole in it.
+        var fromOuter = Shoulder(offset, hw);
+        var shoulder = inner > 0
+            ? MathF.Max(fromOuter, Shoulder(hw - offset + inner, hw))
+            : fromOuter;
+
+        yTop = (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
+        yBottom = (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
+        return true;
     }
 
     private static int HalfWidthOf(HullColumn hull, int z) => hull.Envelope.HalfWidth[z];
@@ -394,9 +428,97 @@ public static class VoxelShipGrower
         return Math.Clamp((t - DeckFlatFraction) / (1f - DeckFlatFraction), 0f, 1f);
     }
 
-    /// <summary>Stacks progressively narrower, shorter slabs on the spine -- the terraced
-    /// step-down silhouette that makes a voxel hull read as a layered capital ship instead of a
-    /// single extruded block. Updates Top[] so later passes sit on the new surface.</summary>
+    /// <summary>
+    /// Structure for a disc hull: concentric decks stepping up toward the centre, radial ribs
+    /// spoking out to the rim, and a stepped bridge dome on the crown. This is the polar
+    /// equivalent of <see cref="AddDeckTerraces"/> -- decks running bow to stern say nothing about
+    /// a round hull, and a bare lens reads as a flying plate rather than as a vessel.
+    ///
+    /// Everything is built up from the column's real surface, so the structure lands on the deck
+    /// wherever the deck actually is, and a hollow ring simply has no columns to build on.
+    /// </summary>
+    private static void GrowDiscStructure(VoxelGrid grid, ShipParameters p, HullColumn hull, int len)
+    {
+        var env = hull.Envelope;
+        var detail = DetailUnit(len);
+        var radius = env.HalfWidth.Max();
+        if (radius < 8) return;
+
+        var centreZ = len / 2;
+        var crown = Math.Max(1, env.Top.Max());
+
+        // Concentric decks. One more tier than an elongated hull gets, because on a disc the
+        // terracing is the silhouette rather than a detail on top of it.
+        // Deliberately shallow steps. A saucer's crown is only modestly thicker than its rim; step
+        // heights big enough to be individually dramatic stack into a cone, and each raised column
+        // is filled solid, so the amplitude drives voxel count and build time as much as looks.
+        var tiers = Math.Clamp(p.Decks + 2, 3, 6);
+        var tierStep = Math.Max(1, (int)MathF.Round(crown * 0.14f));
+
+        const int ribCount = 12;
+        const float ribFraction = 0.34f;
+        var ribHeight = Math.Max(1, detail);
+
+        var domeHeight = Math.Max(2, (int)MathF.Round(crown * 0.5f));
+
+        // Collected separately and applied at the end. Section() derives the bare-hull surface
+        // from Top[], so raising Top[] inside the loop would feed each column a surface that the
+        // previous column had already lifted, and the deck would climb away runaway-style.
+        var raisedTop = new int[len];
+
+        for (var z = 0; z < len; z++)
+        {
+            var hw = env.HalfWidth[z];
+            if (hw < 1) continue;
+
+            for (var dx = -hw; dx <= hw; dx++)
+            {
+                // This pass runs straight after FillHull, so the surface is exactly the bare
+                // section -- computing it beats scanning the grid for it on a hull this wide.
+                if (!Section(env, z, dx, out var surface, out _)) continue;
+                var x = hull.XOffset + dx;
+
+                var dz = z - centreZ;
+                var dist = MathF.Sqrt(dx * dx + (float)dz * dz);
+                var r = dist / radius;
+                if (r > 1f) continue;
+
+                // Concentric terraces: quantising the radius is what turns a smooth dome into
+                // stacked annular decks with visible risers between them.
+                var tier = Math.Clamp((int)((1f - r) * tiers), 0, tiers - 1);
+                var raise = tier * tierStep;
+
+                // Radial ribs. Measured from the disc centre so they converge properly rather
+                // than running parallel like the fore-and-aft seams of an elongated hull.
+                var angle = MathF.Atan2(dx, dz) + MathF.PI;
+                var spoke = angle / (2f * MathF.PI) * ribCount;
+                var onRib = spoke - MathF.Floor(spoke) < ribFraction && r > 0.25f;
+                if (onRib) raise += ribHeight;
+
+                // Bridge dome on the crown, itself stepped rather than smooth.
+                if (r < 0.22f)
+                {
+                    var domeTier = (int)((1f - r / 0.22f) * 3f);
+                    raise += domeTier * Math.Max(1, domeHeight / 3);
+                }
+
+                if (raise <= 0) continue;
+
+                var material = onRib ? VoxelMaterial.Panel : VoxelMaterial.Hull;
+                for (var dy = 1; dy <= raise; dy++)
+                    grid.SetMirrored(x, surface + dy, z, material);
+
+                var newTop = surface + raise;
+                if (newTop > raisedTop[z]) raisedTop[z] = newTop;
+            }
+        }
+
+        // Top[] has to follow the new deck, or the surface-detail passes -- which treat anything
+        // above Top[] as a mounted structure -- would refuse to decorate the disc at all.
+        for (var z = 0; z < len; z++)
+            if (raisedTop[z] > env.Top[z]) env.Top[z] = raisedTop[z];
+    }
+
     private static void AddDeckTerraces(VoxelGrid grid, ShipParameters p, HullColumn primary, int len)
     {
         var env = primary.Envelope;

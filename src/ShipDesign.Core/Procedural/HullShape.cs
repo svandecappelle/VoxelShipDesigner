@@ -106,6 +106,11 @@ public static class HullShapeProfile
         _ => maxHalfWidth,
     };
 
+    /// <summary>Whether this planform is a disc, and so wants concentric-and-radial structure
+    /// rather than the fore-and-aft decks an elongated hull takes. Terraces running bow to stern
+    /// are meaningless on something round.</summary>
+    public static bool IsDisc(HullShape shape) => shape is HullShape.Saucer or HullShape.Ring;
+
     /// <summary>Maximum half-height in voxels. Discs are flattened: their width now comes from the
     /// length, so keeping the full height would make a sphere rather than a saucer.</summary>
     public static int EffectiveHalfHeight(HullShape shape, int maxHalfHeight) => shape switch
