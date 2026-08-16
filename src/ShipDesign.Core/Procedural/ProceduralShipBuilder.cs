@@ -9,13 +9,18 @@ public static class ProceduralShipBuilder
 {
     public static ModelRoot Build(ShipParameters p)
     {
-        var preset = HullClassPreset.All[p.HullClass];
-        var grid = VoxelShipGrower.Grow(p, preset, out _);
-
         var scene = new SceneBuilder();
-        VoxelMesher.AddToScene(scene, grid, VoxelShipGrower.VoxelSize, p);
+        VoxelMesher.AddToScene(scene, BuildVoxels(p), VoxelShipGrower.VoxelSize, p);
         return scene.ToGltf2();
     }
+
+    /// <summary>
+    /// The raw voxel grid behind a ship, before any meshing. Exposed so a renderer can build its
+    /// own geometry from it -- the studio view needs per-face occlusion, which is a property of
+    /// the grid's neighbourhood and is gone by the time the model is a triangle soup.
+    /// </summary>
+    public static VoxelGrid BuildVoxels(ShipParameters p) =>
+        VoxelShipGrower.Grow(p, HullClassPreset.All[p.HullClass], out _);
 
     /// <summary>A call-sign-style code from the hull class prefix and the seed, e.g. "FTR-2291".</summary>
     public static string Designation(ShipParameters p) =>

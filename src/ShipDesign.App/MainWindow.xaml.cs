@@ -31,6 +31,18 @@ namespace ShipDesign.App
             AutoRotateToggle.Unchecked += (_, _) => _autoRotateTimer.Stop();
         }
 
+        private void OnOpenStudio(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not ViewModels.MainViewModel viewModel)
+                return;
+
+            // Opened non-modally and owned, so the parameter panel stays usable behind it. The
+            // studio takes a snapshot of the parameters as they are now: it rebuilds its own
+            // geometry, which is far heavier than the main viewport's, so following every slider
+            // move live would make the sliders crawl.
+            new StudioWindow(viewModel.Parameters, viewModel.Designation) { Owner = this }.Show();
+        }
+
         private void StepAutoRotate()
         {
             if (Viewport.Camera is not PerspectiveCamera camera)

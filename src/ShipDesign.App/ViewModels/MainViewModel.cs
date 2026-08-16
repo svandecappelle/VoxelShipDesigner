@@ -24,6 +24,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string _massClass = "";
     private int _triangleCount;
 
+    /// <summary>The live parameter set, for views that build their own geometry from it rather
+    /// than reusing the main viewport's model -- the studio view needs the voxel grid, which the
+    /// meshed model no longer carries.</summary>
+    public ShipParameters Parameters => _parameters;
+
     public IReadOnlyList<HullClass> HullClasses { get; } = Enum.GetValues<HullClass>();
     public IReadOnlyList<HullShape> HullShapes { get; } = Enum.GetValues<HullShape>();
     public IReadOnlyList<WingStyle> WingStyles { get; } = Enum.GetValues<WingStyle>();

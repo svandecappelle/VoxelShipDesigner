@@ -409,7 +409,10 @@
                         </Border>
 
                         <Button Content="⚄ VAISSEAU ALÉATOIRE" Style="{StaticResource SecondaryButtonStyle}"
-                                Command="{Binding RandomizeShipCommand}" Margin="0,0,0,12" />
+                                Command="{Binding RandomizeShipCommand}" Margin="0,0,0,8" />
+
+                        <Button Content="◉ RENDU STUDIO" Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OnOpenStudio" Margin="0,0,0,12" />
 
                         <!-- Export -->
                         <Border Style="{StaticResource PanelBorderStyle}" Margin="0">
