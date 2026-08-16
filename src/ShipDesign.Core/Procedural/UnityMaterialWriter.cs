@@ -35,19 +35,19 @@ public static class UnityMaterialWriter
     /// mesh's primitives use, so assigning them is a matter of matching names.</summary>
     public static IReadOnlyList<MaterialSpec> SpecsFor(ShipParameters p)
     {
-        var hull = p.HullColor;
-        ShipColor Scale(ShipColor c, float f) => new(c.R * f, c.G * f, c.B * f);
+        // Straight from the mesher's own table. The base colour written here has to be the exact
+        // one the mesh's vertex colours were computed against -- they encode a multiplier on it.
+        var c = VoxelMesher.BaseColours(p);
 
         return new[]
         {
-            new MaterialSpec("voxel_hull", hull, 1f, 0.4f, 0.4f, null, 0f),
-            new MaterialSpec("voxel_hull_dark", Scale(hull, 0.46f), 1f, 0.5f, 0.35f, null, 0f),
-            new MaterialSpec("voxel_panel", Scale(hull, 0.78f), 1f, 0.45f, 0.4f, null, 0f),
-            new MaterialSpec("voxel_accent", p.AccentColor, 1f, 0.4f, 0.45f, null, 0f),
-            new MaterialSpec("voxel_window", new ShipColor(0.96f, 0.75f, 0.26f), 1f, 0f, 0.5f,
-                new ShipColor(0.96f, 0.75f, 0.26f), 1.2f),
-            new MaterialSpec("voxel_glow", p.EngineGlowColor, 1f, 0f, 0.5f, p.EngineGlowColor, 1.4f),
-            new MaterialSpec("voxel_cockpit", p.CockpitTintColor, 0.85f, 0.2f, 0.8f, null, 0f),
+            new MaterialSpec("voxel_hull", c[VoxelMaterial.Hull], 1f, 0.4f, 0.4f, null, 0f),
+            new MaterialSpec("voxel_hull_dark", c[VoxelMaterial.HullDark], 1f, 0.5f, 0.35f, null, 0f),
+            new MaterialSpec("voxel_panel", c[VoxelMaterial.Panel], 1f, 0.45f, 0.4f, null, 0f),
+            new MaterialSpec("voxel_accent", c[VoxelMaterial.Accent], 1f, 0.4f, 0.45f, null, 0f),
+            new MaterialSpec("voxel_window", c[VoxelMaterial.Window], 1f, 0f, 0.5f, c[VoxelMaterial.Window], 1.2f),
+            new MaterialSpec("voxel_glow", c[VoxelMaterial.Glow], 1f, 0f, 0.5f, c[VoxelMaterial.Glow], 1.4f),
+            new MaterialSpec("voxel_cockpit", c[VoxelMaterial.Cockpit], 0.85f, 0.2f, 0.8f, null, 0f),
         };
     }
 

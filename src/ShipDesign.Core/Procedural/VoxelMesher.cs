@@ -21,34 +21,55 @@ public static class VoxelMesher
         (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
     };
 
-    /// <summary>Scales RGB while leaving alpha alone -- the panel/recess shades are derived from
-    /// the hull color rather than being separate parameters, so recoloring a ship keeps its
-    /// plating detail coherent instead of needing three color pickers kept in sync by hand.</summary>
-    private static Vector4 Shade(Vector4 color, float factor) =>
-        new(color.X * factor, color.Y * factor, color.Z * factor, color.W);
-
     /// <summary>Warm gold port lights, matching the reference art style's window glow. Fixed
     /// rather than parameterized: lit windows read as interior lighting, which stays warm
     /// regardless of what the hull is painted -- and the warm/cool contrast against a cool hull
     /// and blue markings is exactly what makes them register as lights.</summary>
-    private static readonly Vector3 WindowColor = new(0.96f, 0.75f, 0.26f);
+    public static readonly ShipColor WindowColor = new(0.96f, 0.75f, 0.26f);
+
+    /// <summary>
+    /// The one place a material role's colour is decided. Everything that needs to know -- the two
+    /// meshers, the studio palette, the Unity .mat writer -- reads it from here.
+    ///
+    /// Centralised because the exported tint is a <em>multiplier</em> on this colour: the vertex
+    /// colour says "8% lighter than your base", and if the mesher and the .mat disagreed about what
+    /// the base was, that instruction would land on the wrong colour. The panel and recess shades
+    /// are derived from the hull rather than being separate parameters, so recolouring a ship keeps
+    /// its plating detail coherent instead of needing three colour pickers kept in sync by hand.
+    /// </summary>
+    public static IReadOnlyDictionary<VoxelMaterial, ShipColor> BaseColours(ShipParameters p)
+    {
+        var hull = p.HullColor;
+        static ShipColor Scale(ShipColor c, float f) => new(c.R * f, c.G * f, c.B * f);
+
+        return new Dictionary<VoxelMaterial, ShipColor>
+        {
+            [VoxelMaterial.Hull] = hull,
+            [VoxelMaterial.HullDark] = Scale(hull, 0.46f),
+            [VoxelMaterial.Panel] = Scale(hull, 0.78f),
+            [VoxelMaterial.Accent] = p.AccentColor,
+            [VoxelMaterial.Window] = WindowColor,
+            [VoxelMaterial.Glow] = p.EngineGlowColor,
+            [VoxelMaterial.Cockpit] = p.CockpitTintColor,
+        };
+    }
 
     /// <summary>The material set a ship exports with. Shared with the Unity mesher so both write
     /// the same names and colours -- a bundle whose materials disagreed with the plain export
     /// would be worse than no bundle.</summary>
     internal static Dictionary<VoxelMaterial, MaterialBuilder> BuildMaterials(ShipParameters p)
     {
-        var hull = p.HullColor.ToVector4();
+        var c = BaseColours(p);
         return new Dictionary<VoxelMaterial, MaterialBuilder>
         {
-            [VoxelMaterial.Hull] = new MaterialBuilder("voxel_hull").WithMetallicRoughness(0.4f, 0.6f).WithBaseColor(hull),
-            [VoxelMaterial.HullDark] = new MaterialBuilder("voxel_hull_dark").WithMetallicRoughness(0.5f, 0.65f).WithBaseColor(Shade(hull, 0.46f)),
-            [VoxelMaterial.Panel] = new MaterialBuilder("voxel_panel").WithMetallicRoughness(0.45f, 0.6f).WithBaseColor(Shade(hull, 0.78f)),
-            [VoxelMaterial.Accent] = new MaterialBuilder("voxel_accent").WithMetallicRoughness(0.4f, 0.55f).WithBaseColor(p.AccentColor.ToVector4()),
-            [VoxelMaterial.Window] = new MaterialBuilder("voxel_window").WithBaseColor(new Vector4(WindowColor, 1f)).WithEmissive(WindowColor, 1.2f),
-            [VoxelMaterial.Glow] = new MaterialBuilder("voxel_glow").WithBaseColor(p.EngineGlowColor.ToVector4()).WithEmissive(p.EngineGlowColor.ToVector3(), 1.4f),
+            [VoxelMaterial.Hull] = new MaterialBuilder("voxel_hull").WithMetallicRoughness(0.4f, 0.6f).WithBaseColor(c[VoxelMaterial.Hull].ToVector4()),
+            [VoxelMaterial.HullDark] = new MaterialBuilder("voxel_hull_dark").WithMetallicRoughness(0.5f, 0.65f).WithBaseColor(c[VoxelMaterial.HullDark].ToVector4()),
+            [VoxelMaterial.Panel] = new MaterialBuilder("voxel_panel").WithMetallicRoughness(0.45f, 0.6f).WithBaseColor(c[VoxelMaterial.Panel].ToVector4()),
+            [VoxelMaterial.Accent] = new MaterialBuilder("voxel_accent").WithMetallicRoughness(0.4f, 0.55f).WithBaseColor(c[VoxelMaterial.Accent].ToVector4()),
+            [VoxelMaterial.Window] = new MaterialBuilder("voxel_window").WithBaseColor(c[VoxelMaterial.Window].ToVector4()).WithEmissive(c[VoxelMaterial.Window].ToVector3(), 1.2f),
+            [VoxelMaterial.Glow] = new MaterialBuilder("voxel_glow").WithBaseColor(c[VoxelMaterial.Glow].ToVector4()).WithEmissive(c[VoxelMaterial.Glow].ToVector3(), 1.4f),
             [VoxelMaterial.Cockpit] = new MaterialBuilder("voxel_cockpit").WithMetallicRoughness(0.2f, 0.2f)
-                .WithBaseColor(p.CockpitTintColor.ToVector4(0.85f)).WithAlpha(AlphaMode.BLEND, 0.1f).WithDoubleSide(true),
+                .WithBaseColor(c[VoxelMaterial.Cockpit].ToVector4(0.85f)).WithAlpha(AlphaMode.BLEND, 0.1f).WithDoubleSide(true),
         };
     }
 

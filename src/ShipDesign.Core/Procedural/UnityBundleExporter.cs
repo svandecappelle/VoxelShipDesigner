@@ -60,7 +60,7 @@ public static class UnityBundleExporter
         sb.AppendLine("{");
         sb.AppendLine($"  \"designation\": \"{designation}\",");
         sb.AppendLine($"  \"voxelSize\": {VoxelShipGrower.VoxelSize.ToString("0.###", i)},");
-        sb.AppendLine("  \"ambientOcclusion\": { \"channel\": \"COLOR_0\", \"encoding\": \"greyscale multiplier on albedo\" },");
+        sb.AppendLine($"  \"vertexShading\": {{ \"channel\": \"COLOR_0\", \"encoding\": \"RGB multiplier on albedo: occlusion ambiante x variation de teinte ({VoxelTint.Variants} tons)\" }},");
         sb.AppendLine("  \"materials\": [");
 
         // Emissive strength is reported because it is the number bloom keys off: below 1 nothing
@@ -95,8 +95,8 @@ public static class UnityBundleExporter
 
         | Fichier | Rôle |
         |---|---|
-        | `{{designation}}.glb` | Le maillage, avec l'occlusion ambiante cuite dans les couleurs de sommet (`COLOR_0`) et l'émissif en HDR (`KHR_materials_emissive_strength`). |
-        | `VoxelShipURP.shader` (+ `.meta`) | Shader URP qui multiplie l'albédo par la couleur de sommet. Sans lui l'occlusion est présente dans le fichier mais invisible. Le `.meta` fixe son GUID, ce qui permet aux `.mat` de le référencer dès l'import. |
+        | `{{designation}}.glb` | Le maillage, avec l'occlusion ambiante **et la variation de teinte par bloc** cuites en RVB dans les couleurs de sommet (`COLOR_0`), et l'émissif en HDR (`KHR_materials_emissive_strength`). |
+        | `VoxelShipURP.shader` (+ `.meta`) | Shader URP qui multiplie l'albédo par la couleur de sommet. Sans lui, occlusion et variation sont présentes dans le fichier mais invisibles. Le `.meta` fixe son GUID, ce qui permet aux `.mat` de le référencer dès l'import. |
         | `voxel_*.mat` | Les sept matériaux prêts à l'emploi, déjà réglés sur le shader ci-dessus. |
         | `materials.json` | Les mêmes valeurs en lisible, si vous préférez régler à la main. |
 
@@ -117,8 +117,10 @@ public static class UnityBundleExporter
 
         ## Points à surveiller
 
-        - **L'occlusion n'apparaît pas** : le matériau utilise encore URP/Lit, qui ignore la couleur
-          de sommet. C'est le symptôme le plus courant.
+        - **La coque paraît uniforme** : le matériau utilise encore URP/Lit, qui ignore la couleur
+          de sommet. C'est le symptôme le plus courant, et il fait disparaître d'un coup l'occlusion
+          ambiante *et* la variation de teinte. Le curseur *Vertex Shading Strength* du shader dose
+          les deux ensemble, de 0 (aplat) à 1.
         - **Pas de halo** : le bloom n'est pas dans la scène, ou son seuil est au-dessus de
           l'intensité émissive (1.2 pour les hublots, 1.4 pour les réacteurs).
         - **Métal terne** : les matériaux de coque sont à 0.4 de métallicité et ont besoin de
@@ -144,7 +146,7 @@ public static class UnityBundleExporter
                 _Metallic("Metallic", Range(0,1)) = 0.0
                 _Smoothness("Smoothness", Range(0,1)) = 0.4
                 _EmissionColor("Emission Color", Color) = (0,0,0,0)
-                _OcclusionStrength("Vertex AO Strength", Range(0,1)) = 1.0
+                _OcclusionStrength("Vertex Shading Strength", Range(0,1)) = 1.0
             }
 
             SubShader
@@ -214,10 +216,13 @@ public static class UnityBundleExporter
                     {
                         half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv) * _BaseColor;
 
-                        // This one line is the whole point of the shader: COLOR_0 carries the baked
-                        // ambient occlusion, and no stock URP material multiplies it into albedo.
-                        half ao = lerp(1.0h, input.color.r, _OcclusionStrength);
-                        albedo.rgb *= ao;
+                        // These two lines are the whole point of the shader: COLOR_0 carries the
+                        // baked ambient occlusion multiplied by the per-block colour variation, and
+                        // no stock URP material multiplies vertex colour into albedo. Taken as RGB
+                        // rather than as a single channel -- occlusion is a brightness, the tint is
+                        // a hue shift, and reading only .r would throw the hue shift away.
+                        half3 vertex = lerp(half3(1.0h, 1.0h, 1.0h), input.color.rgb, _OcclusionStrength);
+                        albedo.rgb *= vertex;
 
                         InputData inputData = (InputData)0;
                         inputData.positionWS = input.positionWS;
