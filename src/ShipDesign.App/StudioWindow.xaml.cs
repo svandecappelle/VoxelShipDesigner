@@ -194,6 +194,9 @@ namespace ShipDesign.App
             GlowCoreViewport.Visibility = visible;
         }
 
+        private void OnOpenSheet(object sender, RoutedEventArgs e) =>
+            new SheetWindow(_parameters, _designation) { Owner = this }.Show();
+
         private void OnExportBundle(object sender, RoutedEventArgs e)
         {
             // A folder rather than a file: the point of the bundle is that the mesh arrives with

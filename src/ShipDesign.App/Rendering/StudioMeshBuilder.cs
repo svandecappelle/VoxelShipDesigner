@@ -29,7 +29,7 @@ public static class StudioMeshBuilder
     private static bool IsEmissive(VoxelMaterial material) =>
         material is VoxelMaterial.Glow or VoxelMaterial.Window;
 
-    public sealed record Result(Model3DGroup Solid, Model3DGroup Emissive, Rect3D Bounds);
+    public sealed record Result(Model3DGroup Solid, Model3DGroup Emissive, Rect3D Bounds, StudioPalette Palette);
 
     public static Result Build(VoxelGrid grid, float voxelSize, ShipParameters p)
     {
@@ -89,7 +89,7 @@ public static class StudioMeshBuilder
             ? new Rect3D(0, 0, 0, 1, 1, 1)
             : new Rect3D(minX, minY, minZ, maxX - minX, maxY - minY, maxZ - minZ);
 
-        return new Result(solid, glow, bounds);
+        return new Result(solid, glow, bounds, palette);
     }
 
     /// <summary>

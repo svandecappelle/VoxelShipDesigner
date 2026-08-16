@@ -18,8 +18,14 @@ public sealed class StudioPalette
 {
     private readonly Dictionary<(VoxelMaterial, int), Material> _solid = new();
     private readonly Dictionary<VoxelMaterial, Material> _emissive = new();
+    private readonly List<(string Name, Color Colour)> _swatches = new();
 
     private StudioPalette() { }
+
+    /// <summary>The colours actually in use, for the presentation sheet's palette strip. Taken
+    /// from the same computation that shades the model rather than re-derived alongside it, so the
+    /// swatch and the hull it claims to describe cannot drift apart.</summary>
+    public IReadOnlyList<(string Name, Color Colour)> Swatches => _swatches;
 
     public static int LevelFor(float shade) =>
         Math.Clamp((int)MathF.Round(shade * (VoxelAmbientOcclusion.Levels - 1)), 0, VoxelAmbientOcclusion.Levels - 1);
@@ -55,8 +61,27 @@ public sealed class StudioPalette
                 palette._solid[(material, level)] = group;
             }
 
+        var windowColour = new ShipColor(0.96f, 0.75f, 0.26f);
         palette._emissive[VoxelMaterial.Glow] = Emissive(p.EngineGlowColor);
-        palette._emissive[VoxelMaterial.Window] = Emissive(new ShipColor(0.96f, 0.75f, 0.26f));
+        palette._emissive[VoxelMaterial.Window] = Emissive(windowColour);
+
+        // Two shades per plating material -- lit and shaded -- because the pair is what the eye
+        // actually reads off the model; a single flat swatch would not match anything on screen.
+        foreach (var (label, colour) in new[]
+        {
+            ("Coque", hull),
+            ("Plaques", Scale(hull, 0.78f)),
+            ("Creux", Scale(hull, 0.46f)),
+            ("Accent", p.AccentColor),
+        })
+        {
+            palette._swatches.Add((label, ToWpf(ShadeHsl(colour, 1f))));
+            palette._swatches.Add(($"{label} ombré", ToWpf(ShadeHsl(colour, VoxelAmbientOcclusion.Shade(0)))));
+        }
+
+        palette._swatches.Add(("Hublots", ToWpf(windowColour)));
+        palette._swatches.Add(("Réacteurs", ToWpf(p.EngineGlowColor)));
+        palette._swatches.Add(("Verrière", ToWpf(p.CockpitTintColor)));
 
         return palette;
     }
