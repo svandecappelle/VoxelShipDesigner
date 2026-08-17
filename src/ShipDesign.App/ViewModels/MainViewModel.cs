@@ -112,7 +112,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public float Length { get => _parameters.Length; set { _parameters.Length = value; OnPropertyChanged(); Rebuild(); } }
     public float Beam { get => _parameters.Beam; set { _parameters.Beam = value; OnPropertyChanged(); Rebuild(); } }
     public float Taper { get => _parameters.Taper; set { _parameters.Taper = value; OnPropertyChanged(); Rebuild(); } }
+    public float KeelFlatness { get => _parameters.KeelFlatness; set { _parameters.KeelFlatness = value; OnPropertyChanged(); Rebuild(); } }
     public int Decks { get => _parameters.Decks; set { _parameters.Decks = value; OnPropertyChanged(); Rebuild(); } }
+    public bool DorsalSpine { get => _parameters.DorsalSpine; set { _parameters.DorsalSpine = value; OnPropertyChanged(); Rebuild(); } }
+    public float SpineHeight { get => _parameters.SpineHeight; set { _parameters.SpineHeight = value; OnPropertyChanged(); Rebuild(); } }
 
     public WingStyle WingStyle { get => _parameters.WingStyle; set { _parameters.WingStyle = value; OnPropertyChanged(); Rebuild(); } }
     public float WingSpan { get => _parameters.WingSpan; set { _parameters.WingSpan = value; OnPropertyChanged(); Rebuild(); } }
@@ -130,6 +133,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public bool Superstructure { get => _parameters.Superstructure; set { _parameters.Superstructure = value; OnPropertyChanged(); Rebuild(); } }
     public float SuperstructureSize { get => _parameters.SuperstructureSize; set { _parameters.SuperstructureSize = value; OnPropertyChanged(); Rebuild(); } }
+    public float TowerPosition { get => _parameters.TowerPosition; set { _parameters.TowerPosition = value; OnPropertyChanged(); Rebuild(); } }
+    public bool TowerDomes { get => _parameters.TowerDomes; set { _parameters.TowerDomes = value; OnPropertyChanged(); Rebuild(); } }
 
     public bool Nacelles { get => _parameters.Nacelles; set { _parameters.Nacelles = value; OnPropertyChanged(); Rebuild(); } }
     public NacelleMount NacelleMount { get => _parameters.NacelleMount; set { _parameters.NacelleMount = value; OnPropertyChanged(); Rebuild(); } }
@@ -239,6 +244,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.Length = 6f + (float)_random.NextDouble() * 30f;
         _parameters.Beam = 1f + (float)_random.NextDouble() * 7f;
         _parameters.Taper = (float)_random.NextDouble();
+
+        // Mostly hulls with some keel chamfer left, but a flat-bottomed wedge turns up regularly
+        // enough to be part of the vocabulary rather than a curiosity.
+        _parameters.KeelFlatness = _random.NextDouble() < 0.3 ? 0.7f + (float)_random.NextDouble() * 0.3f
+                                                             : (float)_random.NextDouble() * 0.4f;
+        _parameters.DorsalSpine = _random.NextDouble() < 0.3;
+        _parameters.SpineHeight = 0.7f + (float)_random.NextDouble() * 1.4f;
+        _parameters.TowerPosition = 0.2f + (float)_random.NextDouble() * 0.7f;
+        _parameters.TowerDomes = _random.NextDouble() < 0.35;
         _parameters.Decks = 1 + _random.Next(4);
         _parameters.WingStyle = WingStyles[_random.Next(WingStyles.Count)];
         _parameters.WingSpan = 2f + (float)_random.NextDouble() * 10f;

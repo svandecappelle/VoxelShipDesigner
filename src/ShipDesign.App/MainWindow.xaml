@@ -215,6 +215,13 @@
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding Taper}" Margin="0,0,0,10" />
 
                                 <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Quille plate" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding KeelFlatness, StringFormat='{}{0:P0}'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding KeelFlatness}" Margin="0,0,0,10"
+                                        ToolTip="Déplace la profondeur de coque au-dessus de l'axe et supprime le chanfrein inférieur. À 100% le dessous est un plan unique : la section en lame des destroyers impériaux." />
+
+                                <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Lignes de pont" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Decks}" />
                                 </Grid>
@@ -294,6 +301,30 @@
                                     <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Superstructure}" Margin="0,0,8,0" />
                                     <TextBlock Text="Tourelle de commandement" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
                                 </StackPanel>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Position de la tourelle" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding TowerPosition, StringFormat='{}{0:P0}'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.08" Maximum="0.95" Value="{Binding TowerPosition}" Margin="0,0,0,10"
+                                        ToolTip="0% à la proue, 100% à la poupe. Tout à l'arrière donne la passerelle des destroyers impériaux." />
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding TowerDomes}" Margin="0,0,8,0" />
+                                    <TextBlock Text="Dômes senseurs" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding DorsalSpine}" Margin="0,0,8,0" />
+                                    <TextBlock Text="Arête dorsale" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Hauteur de l'arête" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SpineHeight, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="4" Value="{Binding SpineHeight}" Margin="0,0,0,10"
+                                        ToolTip="Crête étagée sur l'axe, montant vers la poupe." />
 
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Taille tourelle" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />

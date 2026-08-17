@@ -113,6 +113,11 @@ public static class VoxelShipGrower
         /// </summary>
         public int CentreY { get; init; }
 
+        /// <summary>0..1, carried through from the parameters so <see cref="Section"/> can flatten
+        /// the underside. Kept on the envelope rather than passed around because every caller of
+        /// Section would otherwise have to know about it.</summary>
+        public float KeelFlatness { get; init; }
+
         /// <summary>Deck and keel heights in ship coordinates. Everything that seats a structure on
         /// a hull wants these rather than <see cref="Top"/>, which is measured from the hull's own
         /// mid-line and means nothing on its own once hulls can sit at different heights.</summary>
@@ -522,6 +527,11 @@ public static class VoxelShipGrower
             GrowHullBridges(grid, hulls, lengthVoxels);
         }
 
+        // Before the wings and pods, so those spring from the hull rather than from the ridge, and
+        // after the terraces, so the ridge sits on the stepped deck rather than through it.
+        if (p.DorsalSpine)
+            GrowDorsalSpine(grid, p, primary, lengthVoxels, maxHalfHeight);
+
         if (p.WingStyle != WingStyle.None)
             GrowWings(grid, p, hulls, layout, lengthVoxels, maxHalfHeight);
 
@@ -560,6 +570,7 @@ public static class VoxelShipGrower
         // than a full-size one that happens to sit outboard.
         var maxHW = Math.Max(2, (int)MathF.Round(HullShapeProfile.EffectiveHalfWidth(shape, nominalHW, len) * scale));
         var maxHH = Math.Max(1, (int)MathF.Round(HullShapeProfile.EffectiveHalfHeight(shape, nominalHH) * scale));
+        var keelFlatness = Math.Clamp(p.KeelFlatness, 0f, 1f);
 
         var w = new float[len];
         var top = new float[len];
@@ -593,14 +604,16 @@ public static class VoxelShipGrower
 
             // A dorsal rise over the mid-body, and a flatter keel underneath: a hull that is
             // taller on top than below reads as "has decks" rather than as a symmetric tube.
-            var dorsal = 0.72f + 0.5f * MathF.Sin(MathF.PI * Math.Clamp(u, 0f, 1f));
+            // Flattening the keel moves that depth upward rather than removing it, so a wedge keeps
+            // its bulk and simply carries it all above the waterline.
+            var dorsal = (0.72f + 0.5f * MathF.Sin(MathF.PI * Math.Clamp(u, 0f, 1f))) * (1f + keelFlatness * 0.45f);
 
             // Multiplying rather than adding keeps the waves subordinate to the planform: they
             // swell and pinch the hull the shape already describes instead of redefining it, and
             // they still fade out where the shape closes, so a tapering bow cannot sprout lumps.
             var targetW = widthProfile * maxHW * (1f + widthWave.At(u));
             var targetTop = heightProfile * maxHH * dorsal * (1f + topWave.At(u));
-            var targetBottom = heightProfile * maxHH * 0.62f * (1f + bottomWave.At(u));
+            var targetBottom = heightProfile * maxHH * (0.62f - keelFlatness * 0.38f) * (1f + bottomWave.At(u));
 
             // Upper clamps leave headroom above the nominal size so a wave crest can actually
             // bulge the hull instead of being flattened against the limit.
@@ -649,6 +662,7 @@ public static class VoxelShipGrower
             Top = Quantize(top),
             Bottom = Quantize(bottom),
             InnerHalfWidth = inner,
+            KeelFlatness = keelFlatness,
         };
     }
 
@@ -797,7 +811,11 @@ public static class VoxelShipGrower
             : fromOuter;
 
         yTop = env.CentreY + (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
-        yBottom = env.CentreY - (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
+
+        // A flat keel is the lower chamfer switched off: at flatness 1 the underside is one plane
+        // from flank to flank, which is what makes a wedge read as a knife rather than as a lens.
+        var keelChamfer = 0.55f * (1f - Math.Clamp(env.KeelFlatness, 0f, 1f));
+        yBottom = env.CentreY - (int)MathF.Round(env.Bottom[z] * (1f - shoulder * keelChamfer));
         return true;
     }
 
@@ -1014,11 +1032,15 @@ public static class VoxelShipGrower
         {
             WingStyle.Delta => (0.06f, 0.34f, maxHH * 0.5f),
             WingStyle.TwinFin => (0.16f, 0.20f, maxHH * 0.42f),
+            WingStyle.Cross => (0.10f, 0.18f, maxHH * 0.30f),
             _ => (0f, 0.26f, maxHH * 0.45f),
         };
 
+        // Along the hull the wings spring from, not along the ship. The last of the passes to still
+        // be measuring in ship coordinates: on a composite hull whose saucer stops at a third of the
+        // length, a wing root nominally at 56% started off the end of it.
         var rootCenter = Math.Clamp(layout.WingCenter + rootOffset, 0.3f, 0.8f);
-        var centerZ = (int)MathF.Round(rootCenter * (len - 1));
+        var centerZ = env.SliceAt(rootCenter);
         var rootChord = Math.Max(2, (int)MathF.Round(len * chordFraction * 0.5f));
         var thick0 = Math.Max(1, (int)MathF.Round(thicknessBase));
 
@@ -1060,6 +1082,21 @@ public static class VoxelShipGrower
 
                     for (var dy = 1; dy <= thickness * 2 + 2; dy++)
                         grid.SetMirrored(finX, surface.Value + dy, z, VoxelMaterial.Hull);
+                    continue;
+                }
+
+                if (p.WingStyle == WingStyle.Cross)
+                {
+                    // Four arms rather than two, splayed above and below the axis. Only the two
+                    // starboard arms are written; the mirror supplies the port pair. The rise is
+                    // less than the run so the X is wider than it is tall, which is how a
+                    // snubfighter reads -- an even 45 degrees looks like a caltrop.
+                    var rise = (int)MathF.Round(offset * 0.55f);
+                    var armThickness = Math.Max(1, thickness / 2);
+
+                    foreach (var sign in new[] { 1, -1 })
+                        for (var y = -armThickness; y <= armThickness; y++)
+                            grid.SetMirrored(x, env.CentreY + sign * rise + y, z, VoxelMaterial.Hull);
                     continue;
                 }
 
@@ -1193,20 +1230,91 @@ public static class VoxelShipGrower
         }
     }
 
+    /// <summary>
+    /// A terraced ridge down the centreline, rising toward the stern.
+    ///
+    /// This is the Imperial read, and it is a different thing from either a bridge tower or a deck
+    /// terrace: a tower is a block at one station, a terrace steps the whole beam, and this steps
+    /// only a narrow band of the centreline while climbing the length of the ship. Together with a
+    /// flat keel it is what turns a wedge planform into a Star Destroyer rather than a flat iron.
+    ///
+    /// Each column is raised from the surface actually under it, so the ridge follows a chamfered
+    /// deck or a terraced one instead of hanging over it. Top[] is deliberately *not* raised: the
+    /// ridge is a mounted structure, and telling the surface passes it is deck would have them carve
+    /// panel recesses into it.
+    /// </summary>
+    private static void GrowDorsalSpine(VoxelGrid grid, ShipParameters p, HullColumn hull, int len, int maxHH)
+    {
+        var env = hull.Envelope;
+        var from = env.SliceAt(0.3f);
+        var to = env.SliceAt(0.95f);
+        if (to <= from) return;
+
+        var scale = Math.Clamp(p.SpineHeight, 0.1f, 4f);
+        var peak = Math.Max(1, (int)MathF.Round(maxHH * 0.75f * scale));
+        var detail = DetailUnit(len);
+
+        // Terraced rather than a smooth ramp: the steps are the read. Enough of them to be a
+        // staircase, few enough that each riser is more than a voxel at any resolution.
+        var tiers = Math.Clamp(peak / Math.Max(1, detail), 3, 7);
+
+        for (var z = from; z <= to && z < len; z++)
+        {
+            var hullHalfWidth = HalfWidthOf(hull, z);
+            if (hullHalfWidth < 2) continue;
+
+            var t = (z - from) / (float)(to - from);
+            var tier = Math.Clamp((int)(t * tiers), 0, tiers - 1);
+            var height = Math.Max(1, (int)MathF.Round(peak * (0.28f + 0.72f * (tier / (float)(tiers - 1)))));
+
+            // Narrows as it climbs, so the ridge reads as a spine rather than as a second hull.
+            var halfWidth = Math.Max(1, (int)MathF.Round(hullHalfWidth * (0.46f - 0.16f * t)));
+            var spine = env.SpineOffset(z);
+
+            for (var dx = -halfWidth; dx <= halfWidth; dx++)
+            {
+                var x = hull.XOffset + spine + dx;
+                var surface = TopFilledY(grid, x, z);
+                if (surface is null) continue;
+
+                // The flanks of the ridge are chamfered in too, or its edges read as a cut rather
+                // than as a built-up structure.
+                var shoulder = Shoulder(Math.Abs(dx), halfWidth);
+                var columnHeight = Math.Max(1, (int)MathF.Round(height * (1f - shoulder * 0.55f)));
+                var material = Math.Abs(dx) > halfWidth - Math.Max(1, detail) ? VoxelMaterial.Panel : VoxelMaterial.Hull;
+
+                for (var dy = 1; dy <= columnHeight; dy++)
+                    grid.SetMirrored(x, surface.Value + dy, z, material);
+            }
+        }
+    }
+
     /// <summary>A stepped command tower topped by a thin antenna mast. The mast is what gives the
     /// silhouette a recognizable "bridge" read from a distance, so it is deliberately tall and thin.</summary>
     private static void GrowSuperstructure(VoxelGrid grid, ShipParameters p, HullColumn primary, Layout layout, int len, int maxHH)
     {
         var env = primary.Envelope;
-        var centerZ = env.SliceAt(Math.Clamp(layout.TowerCenter, 0.25f, 0.7f));
+
+        // The parameter sets the station and the seed only jitters around it, at half the amplitude
+        // it used to have on its own. Before, the position *was* the jitter, so an aft-mounted
+        // bridge -- the whole Imperial silhouette -- could not be asked for at any setting.
+        var station = Math.Clamp(p.TowerPosition + (layout.TowerCenter - 0.42f) * 0.5f, 0.08f, 0.95f);
+        var centerZ = env.SliceAt(station);
         // Floored just above zero rather than at 0.4: the point of a low setting is a bridge that
         // barely breaks the deck line, and a floor of 0.4 made the bottom of the slider's travel
         // do nothing at all.
         var scale = Math.Max(0.1f, p.SuperstructureSize);
-        var y = env.DeckY(centerZ);
 
         // On a hollow hull the centreline is empty, so the tower is seated on the band instead.
         var spine = env.SpineOffset(centerZ);
+
+        // Seated on the surface actually under the tower's own column, not on the envelope's deck.
+        // On a hollow hull the section is chamfered toward both rims, so the band the tower stands on
+        // sits well below Top[z] and a tower placed there floats -- with, on a fork, the canopy
+        // painted onto it, since the surface passes then find the tower instead of the hull.
+        var seated = TopFilledY(grid, primary.XOffset + spine, centerZ);
+        if (seated is null) return;
+        var y = seated.Value;
 
         for (var tier = 0; tier < 3; tier++)
         {
@@ -1229,6 +1337,11 @@ public static class VoxelShipGrower
         // Mast thickness follows the detail unit: a fixed 1-voxel spike would vanish to a hair
         // at high resolution, and the mast is a silhouette cue that needs to stay readable.
         var detail = DetailUnit(len);
+
+        if (p.TowerDomes)
+            GrowTowerDomes(grid, primary, spine, centerZ, y,
+                Math.Max(1, (int)MathF.Round(HalfWidthOf(primary, centerZ) * 0.29f * scale)),
+                Math.Max(2, (int)MathF.Round(maxHH * 0.3f * scale)));
         var mastHalf = Math.Max(0, detail / 2);
         var mastHeight = Math.Max(4, (int)MathF.Round(maxHH * 2.2f * scale));
 
@@ -1242,6 +1355,35 @@ public static class VoxelShipGrower
         var barHalf = Math.Max(1, detail * 2);
         for (var dx = -barHalf; dx <= barHalf; dx++)
             grid.SetMirrored(primary.XOffset + spine + dx, barY, centerZ, VoxelMaterial.HullDark);
+    }
+
+    /// <summary>
+    /// The pair of geodesic sensor globes flanking the top of the tower.
+    ///
+    /// Centred *on* the tower's top outboard corner rather than beside it. A sphere pushed clear of
+    /// the tower and dropped to be tangent to it touches at one point, and a sphere's extreme points
+    /// lie on its axes -- so its innermost voxel is at the top and its lowest voxel is at the
+    /// outside, neither of which is anywhere near the tower. Centring on a voxel known to be filled
+    /// puts the sphere's whole lower-inner octant inside the tower block, and what remains visible is
+    /// the upper three-quarters sitting on the bridge's shoulder.
+    ///
+    /// The radius is capped by the tower's own width for the same reason it looks better: a globe
+    /// wider than the structure carrying it has nothing to hold it.
+    /// </summary>
+    private static void GrowTowerDomes(
+        VoxelGrid grid, HullColumn primary, int spine, int centerZ, int towerTop, int towerHalfWidth, int radius)
+    {
+        radius = Math.Clamp(radius, 2, Math.Max(2, towerHalfWidth));
+
+        var x0 = primary.XOffset + spine + towerHalfWidth;
+
+        for (var dx = -radius; dx <= radius; dx++)
+            for (var dy = -radius; dy <= radius; dy++)
+                for (var dz = -radius; dz <= radius; dz++)
+                {
+                    if (dx * dx + dy * dy + dz * dz > radius * radius + radius) continue;
+                    grid.SetMirrored(x0 + dx, towerTop + dy, centerZ + dz, VoxelMaterial.Panel);
+                }
     }
 
     private static void GrowTurrets(VoxelGrid grid, ShipParameters p, HullColumn primary, Layout layout, int len)

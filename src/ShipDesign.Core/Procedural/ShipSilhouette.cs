@@ -80,6 +80,71 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.55f;
             }),
 
+        Of("Destroyer impérial",
+            "Coin à quille plate, arête dorsale étagée montant vers une passerelle arrière coiffée de dômes",
+            p =>
+            {
+                p.HullClass = HullClass.Cruiser;
+                p.HullArrangement = HullArrangement.Parallel;
+                p.HullCount = 1;
+                p.HullShape = HullShape.Wedge;
+                p.Length = 34f;
+                p.Beam = 9f;
+
+                // The taper is what makes the planform a dagger rather than a doorstop, and the flat
+                // keel is what makes its section a knife. Neither alone reads as Imperial.
+                p.Taper = 0.85f;
+                p.KeelFlatness = 1f;
+
+                p.Decks = 4;
+                p.DorsalSpine = true;
+                p.SpineHeight = 1.5f;
+
+                p.WingStyle = WingStyle.None;
+                p.EngineCount = 3;
+                p.EngineStyle = EngineStyle.Standard;
+                p.CockpitStyle = CockpitStyle.None;
+
+                // Right at the stern, where an Imperial bridge sits. This is the setting that did
+                // not exist before -- the tower's station used to be seed jitter and nothing else.
+                p.Superstructure = true;
+                p.SuperstructureSize = 1.3f;
+                p.TowerPosition = 0.9f;
+                p.TowerDomes = true;
+
+                p.Nacelles = false;
+                p.TurretCount = 10;
+                p.GreebleDensity = 0.85f;
+            }),
+
+        Of("Chasseur X",
+            "Fuselage court, quatre ailerons en croix, tuyères en bout d'aile",
+            p =>
+            {
+                p.HullClass = HullClass.Fighter;
+                p.HullArrangement = HullArrangement.Parallel;
+                p.HullCount = 1;
+                p.HullShape = HullShape.Spindle;
+                p.Length = 8f;
+                p.Beam = 2f;
+                p.Taper = 0.7f;
+                p.KeelFlatness = 0.2f;
+                p.Decks = 1;
+
+                p.WingStyle = WingStyle.Cross;
+                p.WingSpan = 6f;
+                p.WingSweepDegrees = 8f;
+
+                p.EngineCount = 4;
+                p.EngineStyle = EngineStyle.Standard;
+                p.CockpitStyle = CockpitStyle.Bubble;
+                p.CockpitSize = 1.4f;
+                p.Superstructure = false;
+                p.Nacelles = false;
+                p.TurretCount = 0;
+                p.GreebleDensity = 0.3f;
+            }),
+
         Of("Chasseur",
             "Coque en dard, ailes en flèche, pods de propulsion suspendus sous les ailes",
             p =>

@@ -41,6 +41,20 @@ public sealed class ShipParameters
     public float Taper { get; set; } = 0.5f;
     public int Decks { get; set; } = 2;
 
+    /// <summary>
+    /// How much of the hull's depth is moved above its mid-line, and how much of the lower chamfer
+    /// is removed. At 0 the section is the symmetric flat-decked trapezoid; at 1 the underside is a
+    /// single flat plane and all the taper is on top, which is the knife cross-section an Imperial
+    /// wedge has and the single biggest thing separating that look from a smooth hull.
+    /// </summary>
+    public float KeelFlatness { get; set; }
+
+    /// <summary>A terraced ridge running down the centreline and rising toward the stern.</summary>
+    public bool DorsalSpine { get; set; }
+
+    /// <summary>Height of that ridge, as a multiple of its default.</summary>
+    public float SpineHeight { get; set; } = 1f;
+
     public WingStyle WingStyle { get; set; } = WingStyle.Swept;
     public float WingSpan { get; set; } = 6f;
     public float WingSweepDegrees { get; set; } = 30f;
@@ -58,6 +72,16 @@ public sealed class ShipParameters
 
     public bool Superstructure { get; set; } = true;
     public float SuperstructureSize { get; set; } = 1f;
+
+    /// <summary>
+    /// Where the command tower sits along its hull, 0 at the bow and 1 at the stern. Previously this
+    /// was only ever a per-seed jitter around mid-hull, so the aft-mounted bridge that defines an
+    /// Imperial silhouette was unreachable at any setting.
+    /// </summary>
+    public float TowerPosition { get; set; } = 0.42f;
+
+    /// <summary>The pair of geodesic sensor globes flanking the top of the tower.</summary>
+    public bool TowerDomes { get; set; }
 
     public bool Nacelles { get; set; } = true;
 

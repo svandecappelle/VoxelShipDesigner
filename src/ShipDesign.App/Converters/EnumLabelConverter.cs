@@ -21,6 +21,7 @@ public sealed class EnumLabelConverter : IValueConverter
         [WingStyle.Swept] = "Flèche",
         [WingStyle.Delta] = "Delta",
         [WingStyle.TwinFin] = "Ailerons",
+        [WingStyle.Cross] = "Croix",
 
         [EngineStyle.Standard] = "Standard",
         [EngineStyle.Ring] = "Anneau",
