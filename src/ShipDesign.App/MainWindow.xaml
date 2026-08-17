@@ -325,6 +325,38 @@
                     </Grid>
                 </StackPanel>
 
+                <!-- Framing controls, top-centre. Until now the only way to recover a sane view was
+                     to change a parameter and let the automatic re-frame fire, which is not a
+                     control so much as a side effect — and it is deliberately suppressed while an
+                     anchored panel is open. The six angles use the ship's own vocabulary rather
+                     than the navigation cube's F/B/L/R/U/D, which say nothing about a hull. -->
+                <Border Style="{StaticResource HudPanelStyle}" Padding="6,5"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="⛶ RECADRER" Style="{StaticResource ViewButtonStyle}" Margin="0"
+                                Click="OnZoomExtents"
+                                ToolTip="Cadre le vaisseau entier sans changer l'angle" />
+                        <Button Content="✛ CENTRER" Style="{StaticResource ViewButtonStyle}"
+                                Click="OnRecentre"
+                                ToolTip="Ramène le vaisseau au centre de la vue sans changer la distance" />
+
+                        <Border Width="1" Margin="7,2" Background="{StaticResource LineCyanDimBrush}" />
+
+                        <Button Content="PROUE" Style="{StaticResource ViewButtonStyle}" Margin="0"
+                                Click="OnViewBow" ToolTip="Vue de face, depuis l'avant" />
+                        <Button Content="POUPE" Style="{StaticResource ViewButtonStyle}"
+                                Click="OnViewStern" ToolTip="Vue de face, depuis l'arrière" />
+                        <Button Content="BÂBORD" Style="{StaticResource ViewButtonStyle}"
+                                Click="OnViewPort" ToolTip="Profil gauche" />
+                        <Button Content="TRIBORD" Style="{StaticResource ViewButtonStyle}"
+                                Click="OnViewStarboard" ToolTip="Profil droit" />
+                        <Button Content="DESSUS" Style="{StaticResource ViewButtonStyle}"
+                                Click="OnViewTop" ToolTip="Vue en plan, proue vers le haut" />
+                        <Button Content="3/4" Style="{StaticResource ViewButtonStyle}"
+                                Click="OnViewHero" ToolTip="Trois-quarts avant tribord, l'angle qui montre le plus de coque" />
+                    </StackPanel>
+                </Border>
+
                 <!-- Settings anchored on the ship. Last child of the grid so it sits above the
                      viewport, and a Canvas rather than a Popup: a Popup's content lives under its
                      own PopupRoot, where the RelativeSource AncestorType=Window bindings this file

@@ -496,6 +496,52 @@ namespace ShipDesign.App
         }
 
 
+        // ---- Framing -----------------------------------------------------------------------
+
+        /// <summary>
+        /// How long a framing change takes. Long enough to see which way the ship turned -- landing
+        /// on a new angle with no transition costs the user a moment working out what they are
+        /// looking at -- and short enough not to be in the way.
+        /// </summary>
+        private const double ViewAnimationMs = 350;
+
+        private void OnZoomExtents(object sender, RoutedEventArgs e) => Viewport.ZoomExtents(ViewAnimationMs);
+
+        /// <summary>Re-aims at the ship without moving the eye, which recovers from a pan that has
+        /// pushed the ship off to one side. Distinct from re-framing, which also resets how close
+        /// you were: having to zoom back in every time you recentre is its own annoyance.</summary>
+        private void OnRecentre(object sender, RoutedEventArgs e) =>
+            Viewport.LookAt(ShipCentre(), ViewAnimationMs);
+
+        // The ship's own axes: Z runs bow to stern, X is the beam, Y is height. The look direction
+        // is where the camera points, so a view *of* the bow looks aft, along +Z.
+        private void OnViewBow(object sender, RoutedEventArgs e) => Frame(new Vector3D(0, 0, 1), Up);
+        private void OnViewStern(object sender, RoutedEventArgs e) => Frame(new Vector3D(0, 0, -1), Up);
+        private void OnViewPort(object sender, RoutedEventArgs e) => Frame(new Vector3D(1, 0, 0), Up);
+        private void OnViewStarboard(object sender, RoutedEventArgs e) => Frame(new Vector3D(-1, 0, 0), Up);
+
+        /// <summary>Plan view. The up vector cannot be the world up here -- it would be parallel to
+        /// the look direction, which leaves the roll undefined -- so it is taken along the hull
+        /// instead, oriented to put the bow at the top of the screen.</summary>
+        private void OnViewTop(object sender, RoutedEventArgs e) =>
+            Frame(new Vector3D(0, -1, 0), new Vector3D(0, 0, -1));
+
+        /// <summary>Three-quarter from ahead, starboard and above: the angle that shows the bow, a
+        /// flank and the deck at once, which is the one worth having a button for.</summary>
+        private void OnViewHero(object sender, RoutedEventArgs e) =>
+            Frame(new Vector3D(-1, -0.5, 1), Up);
+
+        private static Vector3D Up => new(0, 1, 0);
+
+        /// <summary>Sets the angle and fits the ship in one go. Setting only the direction leaves
+        /// the ship at whatever distance the previous view happened to use, which on a long hull
+        /// seen end-on is either a speck or overflowing the frame.</summary>
+        private void Frame(Vector3D direction, Vector3D up)
+        {
+            Viewport.FitView(direction, up, ViewAnimationMs);
+            _overlayDirty = true;
+        }
+
         /// <summary>Centre of the ship on screen, falling back to the origin only when there is no
         /// ship yet.</summary>
         private Point3D ShipCentre()
