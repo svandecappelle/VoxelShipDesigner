@@ -59,7 +59,25 @@ public static class VoxelShipGrower
     /// whole range, which is enough for the UI to refuse a combination that would otherwise spend
     /// several seconds and a few gigabytes building a ship nobody asked for.
     /// </summary>
-    public static long EstimateBoundingVoxels(ShipParameters p)
+    /// <summary>
+    /// The estimate broken into the dimensions it is a product of, so the UI can say *which*
+    /// dimension is the problem. "Reduce the length or the beam" is useless advice on a saucer,
+    /// whose width is its length -- the beam is not what is making it expensive.
+    /// </summary>
+    public readonly record struct BoundingBox(int Length, int Width, int Height, double HullFactor)
+    {
+        public long Voxels => (long)(Length * (long)Width * Height * HullFactor);
+
+        /// <summary>The dimension carrying most of the volume, as something a person can act on.</summary>
+        public string Dominant =>
+            Width >= Length && Width >= Height ? "la largeur"
+            : Height >= Length ? "le creux"
+            : "la longueur";
+    }
+
+    public static long EstimateBoundingVoxels(ShipParameters p) => BoundingBoxFor(p).Voxels;
+
+    public static BoundingBox BoundingBoxFor(ShipParameters p)
     {
         var preset = HullClassPreset.All[p.HullClass];
 
@@ -90,18 +108,17 @@ public static class VoxelShipGrower
                 ? Math.Max(halfWidth, primaryLength / 2)
                 : halfWidth;
 
-            var stackedHeight = 2L * halfHeight
-                + Math.Max(1, (int)MathF.Round(halfWidth * Math.Clamp(p.SecondaryHullDrop, 0.2f, 4f)))
-                + 2L * halfHeight;
+            var stackedHeight = 4 * halfHeight
+                + Math.Max(1, (int)MathF.Round(halfWidth * Math.Clamp(p.SecondaryHullDrop, 0.2f, 4f)));
 
-            return length * (2L * Math.Max(primaryHalfWidth, halfWidth)) * stackedHeight;
+            return new BoundingBox(length, 2 * Math.Max(primaryHalfWidth, halfWidth), stackedHeight, 1.0);
         }
 
         // Outriggers are smaller than the primary and sit beside it, so a trimaran is nearer twice
         // the volume than three times it.
         var parallel = Math.Clamp(p.HullCount, 1, 3) switch { 1 => 1.0, 2 => 2.0, _ => 2.3 };
 
-        return (long)(length * (2L * planHalfWidth) * (2L * halfHeight) * parallel);
+        return new BoundingBox(length, 2 * planHalfWidth, 2 * halfHeight, parallel);
     }
 
     private sealed class Envelope
@@ -267,12 +284,19 @@ public static class VoxelShipGrower
             return new[] { new HullColumn(primaryHalfWidth + gap, primary, p.HullShape) };
 
         const float outriggerScale = 0.62f;
-        var outrigger = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, len, maxHalfWidth, maxHalfHeight, outriggerScale);
+
+        // Grown at its own length and centred, rather than always running the full length of the
+        // ship. The length slider used to stretch the outrigger with the main hull, so a short
+        // sponson beside a long hull was unreachable.
+        var outriggerLen = Math.Clamp((int)MathF.Round(len * Math.Clamp(p.SecondaryHullLength, 0.25f, 1f)), 12, len);
+        var outriggerStart = (len - outriggerLen) / 2;
+        var outrigger = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, outriggerLen, maxHalfWidth, maxHalfHeight, outriggerScale);
 
         return new[]
         {
             new HullColumn(0, primary, p.HullShape),
-            new HullColumn(primaryHalfWidth + gap + outrigger.HalfWidth.Max(), outrigger, p.SecondaryHullShape),
+            new HullColumn(primaryHalfWidth + gap + outrigger.HalfWidth.Max(),
+                outrigger.PlacedAt(len, outriggerStart, 0), p.SecondaryHullShape),
         };
     }
 
@@ -295,7 +319,8 @@ public static class VoxelShipGrower
         // what makes the pair read as one ship: butt them end to end and the neck becomes a
         // coupling between two vehicles.
         var secondaryStart = (int)MathF.Round(primaryLen * 0.55f);
-        var secondaryLen = Math.Max(12, len - secondaryStart);
+        var secondaryLen = Math.Max(12, (int)MathF.Round(
+            (len - secondaryStart) * Math.Clamp(p.SecondaryHullLength, 0.25f, 1f)));
 
         var primary = GrowEnvelope(rng, p, preset, p.HullShape, primaryLen, maxHalfWidth, maxHalfHeight);
         var secondary = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, secondaryLen, maxHalfWidth, maxHalfHeight, 0.82f);
@@ -568,8 +593,106 @@ public static class VoxelShipGrower
         if (p.TurretCount > 0)
             GrowTurrets(grid, p, primary, layout, lengthVoxels);
 
+        DropDetachedFragments(grid);
+
         return grid;
     }
+
+    /// <summary>
+    /// Removes anything not connected to the ship's main body, and reports how much it removed.
+    ///
+    /// A dozen passes each seat their own structure, and "this piece touches the hull" has turned out
+    /// to be wrong in a new way at four of them -- a fin raised from the envelope's deck instead of the
+    /// real surface, a tower on a hollow hull's empty centreline, a globe tangent to a flat top,
+    /// a rim sliver isolated by a panel recess. Each was worth fixing at source and each was. But an
+    /// exported game asset being a single solid is an invariant, not a hope, and enforcing it once
+    /// here is far more reliable than getting every future pass right by inspection.
+    ///
+    /// It is a safety net and not a licence: what it removes is asserted to be tiny. A large
+    /// fragment means a pass is genuinely broken and should be found and fixed, not quietly swept up.
+    /// </summary>
+    /// <summary>
+    /// Coordinates packed into one long, biased so negatives pack too. Measured, not assumed: a first
+    /// version walked a <c>HashSet</c> of (int,int,int) tuples and spent over a second on a
+    /// million-voxel ship -- half the build -- because six tuple hashes per voxel is the whole cost of
+    /// the pass. One integer key per voxel makes the same walk a fraction of that.
+    /// </summary>
+    private const int PackBias = 1 << 20;
+
+    private static long Pack(int x, int y, int z) =>
+        ((long)(x + PackBias) << 42) | ((long)(y + PackBias) << 21) | (uint)(z + PackBias);
+
+    public static int DropDetachedFragments(VoxelGrid grid)
+    {
+        if (grid.Voxels.Count == 0) return 0;
+
+        var remaining = new HashSet<long>(grid.Voxels.Count);
+        foreach (var (x, y, z) in grid.Voxels.Keys) remaining.Add(Pack(x, y, z));
+
+        // Components are collected as (start, size) and only the sizes compared; the voxels
+        // themselves are not kept, which keeps this to one allocation per component rather than one
+        // list per component holding every voxel in it.
+        var components = new List<(int X, int Y, int Z, int Size)>();
+        var stack = new Stack<(int X, int Y, int Z)>();
+
+        foreach (var origin in grid.Voxels.Keys)
+        {
+            if (!remaining.Remove(Pack(origin.X, origin.Y, origin.Z))) continue;
+
+            var size = 0;
+            stack.Clear();
+            stack.Push(origin);
+
+            while (stack.Count > 0)
+            {
+                var (x, y, z) = stack.Pop();
+                size++;
+
+                for (var i = 0; i < Neighbours.Length; i++)
+                {
+                    var (dx, dy, dz) = Neighbours[i];
+                    if (remaining.Remove(Pack(x + dx, y + dy, z + dz))) stack.Push((x + dx, y + dy, z + dz));
+                }
+            }
+
+            components.Add((origin.X, origin.Y, origin.Z, size));
+        }
+
+        if (components.Count <= 1) return 0;
+
+        // Re-walk the main body to know what to keep, then drop the rest. Two walks over the largest
+        // component is still far cheaper than having held every component's voxels in memory.
+        var biggest = components[0];
+        foreach (var c in components)
+            if (c.Size > biggest.Size) biggest = c;
+
+        var keep = new HashSet<long>(biggest.Size);
+        stack.Clear();
+        stack.Push((biggest.X, biggest.Y, biggest.Z));
+        keep.Add(Pack(biggest.X, biggest.Y, biggest.Z));
+
+        while (stack.Count > 0)
+        {
+            var (x, y, z) = stack.Pop();
+            for (var i = 0; i < Neighbours.Length; i++)
+            {
+                var (dx, dy, dz) = Neighbours[i];
+                var nx = x + dx;
+                var ny = y + dy;
+                var nz = z + dz;
+                if (grid.IsFilled(nx, ny, nz) && keep.Add(Pack(nx, ny, nz))) stack.Push((nx, ny, nz));
+            }
+        }
+
+        var doomed = grid.Voxels.Keys.Where(k => !keep.Contains(Pack(k.X, k.Y, k.Z))).ToList();
+        foreach (var (x, y, z) in doomed) grid.Remove(x, y, z);
+        return doomed.Count;
+    }
+
+    private static readonly (int X, int Y, int Z)[] Neighbours =
+    {
+        (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
+    };
 
     // ---- Hull envelope ------------------------------------------------------------------
 
@@ -854,12 +977,19 @@ public static class VoxelShipGrower
     private static void GrowHullBridges(VoxelGrid grid, IReadOnlyList<HullColumn> hulls, int len)
     {
         var detail = DetailUnit(len);
-        var outerOffset = hulls[^1].XOffset;
+        var outer = hulls[^1];
+        var outerOffset = outer.XOffset;
         var spars = 3;
+
+        // Spaced across the *outboard* hull's extent rather than the ship's. Once an outrigger can be
+        // shorter than the ship, a spar at a fixed fraction of the ship reaches out to where that
+        // hull is not, and the beam ends in mid-air with nothing on the far end of it.
+        var first = outer.Envelope.FirstZ;
+        var last = outer.Envelope.LastZ;
 
         for (var i = 0; i < spars; i++)
         {
-            var z = (int)MathF.Round((0.28f + i * 0.22f) * (len - 1));
+            var z = first + (int)MathF.Round((0.18f + i * 0.28f) * (last - first));
             if (z < 0 || z >= len) continue;
 
             var halfDepth = Math.Max(1, detail * 2);
@@ -869,6 +999,9 @@ public static class VoxelShipGrower
             {
                 var zz = z + dz;
                 if (zz < 0 || zz >= len) continue;
+
+                // Only where both ends actually have hull to land on.
+                if (hulls[0].Envelope.HalfWidth[zz] < 1 || outer.Envelope.HalfWidth[zz] < 1) continue;
 
                 // Span from the centreline out to the outboard hull. For a catamaran that beam
                 // crosses x=0 and joins the two hulls; for a trimaran it ties each outrigger to

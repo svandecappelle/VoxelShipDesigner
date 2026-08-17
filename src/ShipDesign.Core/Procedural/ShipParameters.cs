@@ -19,6 +19,16 @@ public sealed class ShipParameters
     /// hull's half-height. Larger values mean a longer, more visible neck.</summary>
     public float SecondaryHullDrop { get; set; } = 1.6f;
 
+    /// <summary>
+    /// How much of the length available to it the secondary hull actually uses, 0.25 to 1.
+    ///
+    /// <see cref="Length"/> is the whole ship's length and every hull was sized from it, so the
+    /// length slider stretched the outrigger or the engineering hull along with the main one and
+    /// there was no way to have a short sponson beside a long hull, or an engineering hull that stops
+    /// short of the stern. At 1 the secondary fills its span as it always did.
+    /// </summary>
+    public float SecondaryHullLength { get; set; } = 1f;
+
     /// <summary>Number of parallel hulls: 1 is a conventional single hull, 2 a catamaran (two
     /// full-size hulls either side of the centreline), 3 a trimaran (a full-size centre hull with
     /// a smaller outrigger each side). Multi-hull ships are joined by lateral spars.</summary>

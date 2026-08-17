@@ -108,6 +108,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public float PrimaryHullFraction { get => _parameters.PrimaryHullFraction; set { _parameters.PrimaryHullFraction = value; OnPropertyChanged(); Rebuild(); } }
     public float SecondaryHullDrop { get => _parameters.SecondaryHullDrop; set { _parameters.SecondaryHullDrop = value; OnPropertyChanged(); Rebuild(); } }
+    public float SecondaryHullLength { get => _parameters.SecondaryHullLength; set { _parameters.SecondaryHullLength = value; OnPropertyChanged(); Rebuild(); } }
     public float HullSpacing { get => _parameters.HullSpacing; set { _parameters.HullSpacing = value; OnPropertyChanged(); Rebuild(); } }
     public float Length { get => _parameters.Length; set { _parameters.Length = value; OnPropertyChanged(); Rebuild(); } }
     public float Beam { get => _parameters.Beam; set { _parameters.Beam = value; OnPropertyChanged(); Rebuild(); } }
@@ -233,6 +234,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             : HullArrangement.Parallel;
         _parameters.PrimaryHullFraction = 0.32f + (float)_random.NextDouble() * 0.26f;
         _parameters.SecondaryHullDrop = 0.9f + (float)_random.NextDouble() * 1.6f;
+        _parameters.SecondaryHullLength = 0.45f + (float)_random.NextDouble() * 0.55f;
         _parameters.Deflector = _random.NextDouble() > 0.2;
 
         // Single hull most of the time: catamarans and trimarans are a distinctive silhouette,
@@ -347,11 +349,19 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // slider suggests on its own -- enough to spend seconds and gigabytes. Refused rather than
         // silently clamped: a slider that moves while the ship ignores it is worse than being told
         // why nothing happened, and the previous ship stays on screen meanwhile.
-        var estimate = VoxelShipGrower.EstimateBoundingVoxels(_parameters);
-        if (estimate > MaxBoundingVoxels)
+        var box = VoxelShipGrower.BoundingBoxFor(_parameters);
+        if (box.Voxels > MaxBoundingVoxels)
         {
-            StatusText = $"Gabarit trop grand ({estimate / 1000:N0}k voxels d'encombrement, " +
-                         $"maximum {MaxBoundingVoxels / 1000:N0}k) — réduire la longueur ou le maître-bau.";
+            // Names the dimension actually responsible. "Reduce the length or the beam" was useless
+            // advice on a disc planform, whose width *is* its length -- the beam is not what makes it
+            // expensive, and the user is left dragging the wrong slider.
+            var disc = HullShapeProfile.IsDisc(_parameters.HullShape)
+                ? " (sur une soucoupe ou un anneau, la longueur fixe aussi la largeur)"
+                : "";
+
+            StatusText = $"Gabarit trop grand : encombrement {box.Length} × {box.Width} × {box.Height} voxels " +
+                         $"= {box.Voxels / 1000:N0}k, maximum {MaxBoundingVoxels / 1000:N0}k. " +
+                         $"Réduire {box.Dominant}{disc}.";
             return;
         }
 

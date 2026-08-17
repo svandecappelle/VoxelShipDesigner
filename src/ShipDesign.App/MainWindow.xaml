@@ -179,6 +179,13 @@
                                 <!-- A catamaran is two copies of the main hull, so it has no second
                                      shape to pick; a trimaran and a composite ship both do. -->
                                 <StackPanel Visibility="{Binding HasSecondaryHulls, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Longueur coque secondaire" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SecondaryHullLength, StringFormat='{}{0:P0}'}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.25" Maximum="1" Value="{Binding SecondaryHullLength}" Margin="0,0,0,10"
+                                            ToolTip="Part de sa portée que la coque secondaire occupe. Sous 100% on obtient un flotteur court à côté d'une longue coque, ou une coque d'ingénierie qui s'arrête avant la poupe." />
+
                                     <TextBlock Text="Forme de la coque secondaire" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
                                     <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
                                              SelectedItem="{Binding SecondaryHullShape}" Margin="0,0,0,10">
