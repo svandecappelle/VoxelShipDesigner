@@ -7,6 +7,9 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Theme.xaml" />
+                <!-- After the theme, not before: a StaticResource only sees dictionaries merged
+                     ahead of it, and every one of these templates uses the theme's styles. -->
+                <ResourceDictionary Source="ParameterPanels.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -1,0 +1,351 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- The contents of the eight anchored panels, one DataTemplate each.
+
+         Every one of them is applied to the MainViewModel itself, so the ~40 {Binding Length}-style
+         bindings inside carry over from the sidebar unchanged. That is the reason the panel binds
+         its Content to the view model and picks the template separately: binding Content to the
+         active group would make each template's DataContext an enum value and break all of them.
+
+         The grouping is not the old sidebar's. SECONDARY STRUCTURES in particular mixed the conning
+         tower, the dorsal ridge and the nacelles into one list, which was defensible in a scrolling
+         column and is not once each panel has to point at one place on the ship. -->
+
+    <DataTemplate x:Key="Panel.Shape">
+        <StackPanel>
+            <TextBlock Text="Forme de coque" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
+                     SelectedItem="{Binding HullShape}" Margin="0,0,0,10">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <!-- Stretch="None" keeps each outline at its authored size, so the
+                                 buttons show the shapes' relative proportions rather than
+                                 normalising every one of them to fill the same box. -->
+                            <Path Data="{Binding Converter={StaticResource HullShapeIconConverter}}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                  Stretch="None" Width="44" Height="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}"
+                                       HorizontalAlignment="Center" Margin="0,3,0,0" FontSize="9.5" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock Text="Disposition des coques" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullArrangements}"
+                     SelectedItem="{Binding HullArrangement}" Margin="0,0,0,10">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <!-- Schematics are side views here, unlike the hull-shape ones: from above
+                             the two arrangements look identical, and the whole distinction lives
+                             in profile. -->
+                        <StackPanel>
+                            <Path Data="{Binding Converter={StaticResource HullArrangementIconConverter}}"
+                                  Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                  Stretch="None" Width="44" Height="22" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" TextWrapping="Wrap"
+                                       TextAlignment="Center" Margin="0,3,0,0" FontSize="9.5" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Side-by-side hulls only: a composite ship has exactly two, stacked. -->
+            <StackPanel Visibility="{Binding IsParallel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Nombre de coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullCount}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="3" Value="{Binding HullCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Écartement des coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullSpacing, StringFormat='{}{0:0.0}×'}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="6" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
+            </StackPanel>
+
+            <!-- Stacked hulls only. -->
+            <StackPanel Visibility="{Binding IsComposite, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Part de la coque avant" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding PrimaryHullFraction, StringFormat='{}{0:P0}'}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="0.8" Value="{Binding PrimaryHullFraction}" Margin="0,0,0,10"
+                        ToolTip="Longueur de la soucoupe rapportée au vaisseau entier. Autour de 45% donne la proportion Starfleet." />
+
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Longueur du col" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SecondaryHullDrop, StringFormat='{}{0:0.0}×'}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="4" Value="{Binding SecondaryHullDrop}" Margin="0,0,0,10"
+                        ToolTip="À quelle distance la coque d'ingénierie est suspendue sous la soucoupe." />
+
+                <CheckBox Content="Déflecteur" IsChecked="{Binding Deflector}" Margin="0,0,0,10"
+                          ToolTip="Le grand disque émissif encastré dans la proue de la coque d'ingénierie." />
+            </StackPanel>
+
+            <!-- A catamaran is two copies of the main hull, so it has no second shape to pick;
+                 a trimaran and a composite ship both do. -->
+            <StackPanel Visibility="{Binding HasSecondaryHulls, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Longueur coque secondaire" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SecondaryHullLength, StringFormat='{}{0:P0}'}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.25" Maximum="1" Value="{Binding SecondaryHullLength}" Margin="0,0,0,10"
+                        ToolTip="Part de sa portée que la coque secondaire occupe. Sous 100% on obtient un flotteur court à côté d'une longue coque, ou une coque d'ingénierie qui s'arrête avant la poupe." />
+
+                <TextBlock Text="Forme de la coque secondaire" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
+                         SelectedItem="{Binding SecondaryHullShape}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <Path Data="{Binding Converter={StaticResource HullShapeIconConverter}}"
+                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                      Stretch="None" Width="44" Height="22" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}"
+                                           HorizontalAlignment="Center" Margin="0,3,0,0" FontSize="9.5" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </StackPanel>
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Dimensions">
+        <StackPanel>
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Longueur" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Length, StringFormat='{}{0:0.0} M'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="4" Maximum="90" Value="{Binding Length}" Margin="0,0,0,10" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Maître-bau (largeur)" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Beam, StringFormat='{}{0:0.0} M'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.6" Maximum="18" Value="{Binding Beam}" Margin="0,0,0,10" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Creux (hauteur)" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Depth, StringFormat='{}{0:0.0} M'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="12" Value="{Binding Depth}" Margin="0,0,0,10"
+                    ToolTip="Hauteur de coque, indépendante du maître-bau. La classe module encore la section : un cargo reste plus cubique qu'un croiseur à creux égal." />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Effilement du nez" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Taper, StringFormat='{}{0:P0}'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding Taper}" Margin="0,0,0,10" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Quille plate" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding KeelFlatness, StringFormat='{}{0:P0}'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding KeelFlatness}" Margin="0,0,0,10"
+                    ToolTip="Déplace la profondeur de coque au-dessus de l'axe et supprime le chanfrein inférieur. À 100% le dessous est un plan unique : la section en lame des destroyers impériaux." />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Lignes de pont" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Decks}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="12" Value="{Binding Decks}" TickFrequency="1" IsSnapToTickEnabled="True" />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Wings">
+        <StackPanel>
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding WingStyles}" SelectedItem="{Binding WingStyle}" Margin="0,0,0,6">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Envergure" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSpan, StringFormat='{}{0:0.0} M'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="36" Value="{Binding WingSpan}" Margin="0,0,0,10" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Angle de flèche" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSweepDegrees, StringFormat='{}{0:0}°'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-30" Maximum="85" Value="{Binding WingSweepDegrees}" />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Propulsion">
+        <StackPanel>
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Nombre de tuyères" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding EngineCount}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="10" Value="{Binding EngineCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding EngineStyles}" SelectedItem="{Binding EngineStyle}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Cockpit">
+        <StackPanel>
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding CockpitStyles}" SelectedItem="{Binding CockpitStyle}" Margin="0,0,0,6">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Taille" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding CockpitSize, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.15" Maximum="4" Value="{Binding CockpitSize}" />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Tower">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Superstructure}" Margin="0,0,8,0" />
+                <TextBlock Text="Tourelle de commandement" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Position de la tourelle" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding TowerPosition, StringFormat='{}{0:P0}'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.08" Maximum="0.95" Value="{Binding TowerPosition}" Margin="0,0,0,10"
+                    ToolTip="0% à la proue, 100% à la poupe. Tout à l'arrière donne la passerelle des destroyers impériaux." />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Taille tourelle" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SuperstructureSize, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.15" Maximum="5" Value="{Binding SuperstructureSize}" Margin="0,0,0,12" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding TowerDomes}" Margin="0,0,8,0" />
+                <TextBlock Text="Dômes senseurs" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding DorsalSpine}" Margin="0,0,8,0" />
+                <TextBlock Text="Arête dorsale" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Hauteur de l'arête" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SpineHeight, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="4" Value="{Binding SpineHeight}"
+                    ToolTip="Crête étagée sur l'axe, montant vers la poupe." />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Nacelles">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Nacelles}" Margin="0,0,8,0" />
+                <TextBlock Text="Nacelles sur pylônes" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Text="Ancrage" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding NacelleMounts}"
+                     SelectedItem="{Binding NacelleMount}" Margin="0,0,0,10"
+                     ToolTip="Sur quelle coque partent les pylônes. Sur un vaisseau à soucoupe, « coque arrière » est la disposition Starfleet.">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" TextWrapping="Wrap"
+                                   TextAlignment="Center" FontSize="9.5" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock Text="Éclairage" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+            <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding NacelleStyles}"
+                     SelectedItem="{Binding NacelleStyle}" Margin="0,0,0,12"
+                     ToolTip="« Warp » remplace la tuyère arrière par un collecteur lumineux à l'avant et une grille éclairée sur les flancs.">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Largeur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleWidth, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="4" Value="{Binding NacelleWidth}" Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Longueur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleLength, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="4" Value="{Binding NacelleLength}" Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Espacement nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSpacing, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.05" Maximum="6" Value="{Binding NacelleSpacing}" Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Hauteur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleRise, StringFormat='{}{0:+0.0;-0.0;0.0}'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-4" Maximum="4" Value="{Binding NacelleRise}" Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Recul nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSweep, StringFormat='{}{0:0%}'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.95" Value="{Binding NacelleSweep}" Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Corde des pylônes" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding PylonChord, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="6" Value="{Binding PylonChord}"
+                    ToolTip="Profondeur du pylône d'avant en arrière : au-delà de 2 il devient une lame large plutôt qu'une entretoise." />
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="Panel.Surface">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding Greebles}" Margin="0,0,8,0" />
+                <TextBlock Text="Panneaux &amp; greebles" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Densité" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding GreebleDensity, StringFormat='{}{0:P0}'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding GreebleDensity}" Margin="0,0,0,10" />
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Tourelles d'armement" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding TurretCount}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="24" Value="{Binding TurretCount}"
+                    TickFrequency="1" IsSnapToTickEnabled="True" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

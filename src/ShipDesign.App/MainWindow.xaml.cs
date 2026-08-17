@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -87,6 +88,7 @@ namespace ShipDesign.App
                 CompositionTarget.Rendering += OnFrame;
             };
 
+            BuildPins();
             LeaderLine.Points = _leaderPoints;
 
             // Preview, so it is caught before a control inside the panel can claim it.
@@ -143,7 +145,8 @@ namespace ShipDesign.App
             var anchors = _viewModel?.Anchors;
             if (anchors is null)
             {
-                WingPin.Visibility = Visibility.Collapsed;
+                foreach (var slot in _pins) slot.Button.Visibility = Visibility.Collapsed;
+                LeaderLine.Visibility = Visibility.Collapsed;
                 return;
             }
 
@@ -154,29 +157,99 @@ namespace ShipDesign.App
             var inner = Viewport.Viewport;
             var toOverlay = inner.TransformToVisual(AnchorOverlay);
 
-            var wing = Place(WingPin, anchors.Wing, camera, inner, toOverlay);
+            var forward = camera.LookDirection;
+            forward.Normalize();
+
+            // The ship's own mid-axis, taken from the two anchors that are always on the centreline.
+            // Anything further from the eye than this is on the far side of the hull, and its marker
+            // is drawn through the ship -- which the overlay cannot help, being 2D over a 3D view,
+            // but can at least admit to by fading. A real per-marker depth test every frame would
+            // cost far more than it is worth, and the depth is already in hand for the near-plane
+            // guard.
+            var axisDepth = 0.5 * (
+                Depth(World(anchors.Bow), camera, forward) + Depth(World(anchors.Engine), camera, forward));
+
+            Point? openTip = null;
+            var placed = new List<Point>(_pins.Length);
+
+            foreach (var slot in _pins)
+            {
+                var hit = Place(slot.Button, slot.Anchor(anchors), camera, inner, toOverlay, placed);
+                if (hit is not { } spot)
+                    continue;
+
+                slot.Button.Opacity = spot.Depth > axisDepth ? 0.4 : 1.0;
+                if (slot == _openPin) openTip = spot.Position;
+            }
 
             // The leader is redrawn from the marker's live position against the panel's frozen one,
             // which is the whole arrangement: the anchor sweeps as the view turns, the panel does
             // not, and the line is what keeps them legibly attached.
-            if (IsPanelOpen && wing is { } tip)
+            if (IsPanelOpen && openTip is { } tip)
                 DrawLeader(tip);
             else
                 LeaderLine.Visibility = Visibility.Collapsed;
         }
 
+        private static Point3D World(ShipAnchor a) => new(
+            a.X * VoxelShipGrower.VoxelSize, a.Y * VoxelShipGrower.VoxelSize, a.Z * VoxelShipGrower.VoxelSize);
+
+        private static double Depth(Point3D world, PerspectiveCamera camera, Vector3D unitForward) =>
+            Vector3D.DotProduct(world - camera.Position, unitForward);
+
         // ---- Panel -------------------------------------------------------------------------
+
+        /// <summary>One marker and the panel behind it. A fixed array rather than anything bound:
+        /// the markers must never be re-templated, since re-creating them would drop the open one's
+        /// checked state, and eight declared elements cannot be rebuilt by accident.</summary>
+        private sealed record PinSlot(
+            ToggleButton Button, string Title, string TemplateKey, Func<ShipAnchors, ShipAnchor> Anchor);
+
+        private PinSlot[] _pins = Array.Empty<PinSlot>();
+        private PinSlot? _openPin;
+
+        /// <summary>Guards the moment one marker is opened while another is open: unchecking the old
+        /// one raises Unchecked, which would close the panel that is in the middle of opening.</summary>
+        private bool _switchingPins;
+
+        private void BuildPins() => _pins = new[]
+        {
+            new PinSlot(ShapePin, "FORME", "Panel.Shape", a => a.Bow),
+            new PinSlot(DimensionsPin, "DIMENSIONS", "Panel.Dimensions", a => a.HullMid),
+            new PinSlot(WingPin, "AILES", "Panel.Wings", a => a.Wing),
+            new PinSlot(PropulsionPin, "PROPULSION", "Panel.Propulsion", a => a.Engine),
+            new PinSlot(CockpitPin, "COCKPIT", "Panel.Cockpit", a => a.Cockpit),
+            new PinSlot(TowerPin, "TOURELLE", "Panel.Tower", a => a.Tower),
+            new PinSlot(NacellePin, "NACELLES", "Panel.Nacelles", a => a.Nacelle),
+            new PinSlot(SurfacePin, "SURFACE", "Panel.Surface", a => a.Surface),
+        };
 
         private void OnPinToggled(object sender, RoutedEventArgs e)
         {
-            if (WingPin.IsChecked == true) OpenPanel();
-            else ClosePanel();
+            if (_switchingPins || sender is not ToggleButton button) return;
+
+            var slot = Array.Find(_pins, p => p.Button == button);
+            if (slot is null) return;
+
+            if (button.IsChecked == true) OpenPanel(slot);
+            else if (_openPin == slot) ClosePanel();
         }
 
         private void OnClosePanel(object sender, RoutedEventArgs e) => ClosePanel();
 
-        private void OpenPanel()
+        private void OpenPanel(PinSlot slot)
         {
+            // Only ever one panel. Unchecking the outgoing marker raises Unchecked, so the guard
+            // stops that from closing the panel this call is opening.
+            _switchingPins = true;
+            foreach (var other in _pins)
+                if (other != slot) other.Button.IsChecked = false;
+            _switchingPins = false;
+
+            _openPin = slot;
+            AnchorPanelTitle.Text = slot.Title;
+            AnchorPanelBody.ContentTemplate = (DataTemplate)FindResource(slot.TemplateKey);
+
             AnchorPanel.MaxHeight = Math.Max(140, AnchorOverlay.ActualHeight - 32);
             AnchorPanel.Visibility = Visibility.Visible;
 
@@ -188,8 +261,8 @@ namespace ShipDesign.App
             var size = AnchorPanel.DesiredSize;
 
             var anchor = new Point(
-                Canvas.GetLeft(WingPin) + WingPin.Width / 2,
-                Canvas.GetTop(WingPin) + WingPin.Height / 2);
+                Canvas.GetLeft(slot.Button) + slot.Button.Width / 2,
+                Canvas.GetTop(slot.Button) + slot.Button.Height / 2);
 
             if (!double.IsFinite(anchor.X) || !double.IsFinite(anchor.Y))
                 anchor = new Point(AnchorOverlay.ActualWidth / 2, AnchorOverlay.ActualHeight / 2);
@@ -232,7 +305,11 @@ namespace ShipDesign.App
             _panelOrigin = null;
             AnchorPanel.Visibility = Visibility.Collapsed;
             LeaderLine.Visibility = Visibility.Collapsed;
-            WingPin.IsChecked = false;
+            _switchingPins = true;
+            foreach (var slot in _pins) slot.Button.IsChecked = false;
+            _switchingPins = false;
+            _openPin = null;
+
             AutoRotateToggle.IsEnabled = true;
             AutoRotateToggle.ToolTip = null;
             Viewport.Focus();
@@ -295,16 +372,17 @@ namespace ShipDesign.App
             LeaderLine.Visibility = Visibility.Visible;
         }
 
-        /// <summary>Positions one marker and reports where it landed, or null if it is not on
-        /// screen this frame.</summary>
-        private static Point? Place(
+        private readonly record struct PinSpot(Point Position, double Depth);
+
+        /// <summary>
+        /// Positions one marker and reports where it landed, or null if it is not on screen this
+        /// frame. <paramref name="placed"/> carries the markers already positioned, and grows.
+        /// </summary>
+        private static PinSpot? Place(
             FrameworkElement pin, ShipAnchor anchor, PerspectiveCamera camera,
-            Viewport3D inner, GeneralTransform toOverlay)
+            Viewport3D inner, GeneralTransform toOverlay, List<Point> placed)
         {
-            var world = new Point3D(
-                anchor.X * VoxelShipGrower.VoxelSize,
-                anchor.Y * VoxelShipGrower.VoxelSize,
-                anchor.Z * VoxelShipGrower.VoxelSize);
+            var world = World(anchor);
 
             // Behind the camera has to be rejected before projecting, not after: for a point behind
             // the eye the projection returns a plausible-looking mirrored position rather than
@@ -313,7 +391,7 @@ namespace ShipDesign.App
             // from a position, and the XAML default camera is not unit either.
             var forward = camera.LookDirection;
             forward.Normalize();
-            var depth = Vector3D.DotProduct(world - camera.Position, forward);
+            var depth = Depth(world, camera, forward);
             if (depth <= camera.NearPlaneDistance)
             {
                 pin.Visibility = Visibility.Collapsed;
@@ -323,24 +401,40 @@ namespace ShipDesign.App
             var projected = Viewport3DHelper.Point3DtoPoint2D(inner, world);
             var point = toOverlay.Transform(projected);
 
-            // Canvas.SetLeft(NaN) does not throw; it arranges at zero and parks the marker in the
-            // corner, which reads as a placement bug rather than as a bad projection.
+            // Canvas.SetLeft(NaN) does not throw. It arranges at zero and parks the marker in the
+            // corner, which reads as a placement bug rather than a bad projection.
             if (!double.IsFinite(point.X) || !double.IsFinite(point.Y))
             {
                 pin.Visibility = Visibility.Collapsed;
                 return null;
             }
 
+            // Head-on or from directly above, several anchors project to nearly the same spot and
+            // the markers stack into an unreadable pile. Nudging downward off whichever markers are
+            // already placed spreads them. Deliberately in a fixed order and by a fixed step: a
+            // solver free to re-decide every frame would leave the whole cluster trembling as the
+            // view turns, which is worse than the overlap.
+            const double clearance = 30;
+            for (var attempt = 0; attempt < placed.Count; attempt++)
+            {
+                var clash = placed.FindIndex(q =>
+                    Math.Abs(q.X - point.X) < clearance && Math.Abs(q.Y - point.Y) < clearance);
+                if (clash < 0) break;
+                point.Y = placed[clash].Y + clearance;
+            }
+
+            placed.Add(point);
             pin.Visibility = Visibility.Visible;
 
             // The marker has a fixed size, which is what lets it be centred on the anchor without a
             // measure pass -- and, more to the point, what stops its hover label from shifting the
             // dot off the part it is pointing at.
+            //
+            // Rounded, or a hairline stroke at fractional coordinates shimmers as the view turns.
             Canvas.SetLeft(pin, Math.Round(point.X - pin.Width / 2));
             Canvas.SetTop(pin, Math.Round(point.Y - pin.Height / 2));
 
-            // Rounded, or a hairline stroke at fractional coordinates shimmers as the view turns.
-            return new Point(Math.Round(point.X), Math.Round(point.Y));
+            return new PinSpot(new Point(Math.Round(point.X), Math.Round(point.Y)), depth);
         }
 
         private void OnOpenStudio(object sender, RoutedEventArgs e)

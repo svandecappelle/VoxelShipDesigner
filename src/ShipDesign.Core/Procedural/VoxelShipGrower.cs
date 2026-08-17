@@ -674,21 +674,34 @@ public static class VoxelShipGrower
         // at nothing. Stepping outward until the swept station leaves the hull errs toward the
         // ship, which is the right way to be wrong for something that has to look attached.
         var wingRootX = OuterEdge(hulls, wingRootZ);
-        var wingReach = 0;
-        while (wingReach < wingSpan)
+
+        // With no wings the tip is imaginary, and a marker left out at the span where wings *would*
+        // reach floats in open space beside a ship that has none -- which reads as a bug rather than
+        // as an invitation. The marker still has to exist, or the user could never switch wings back
+        // on, so it retreats to the root on the hull flank instead: still the place wings attach,
+        // and it travels out to the tip as soon as there is a tip to travel to.
+        var wingReach = p.WingStyle == WingStyle.None ? 0 : ReachOutward();
+
+        int ReachOutward()
         {
-            var next = wingReach + 1;
-            var swept = wingRootZ + (int)MathF.Round(wingSweep * next);
-            if (swept < 0 || swept >= len) break;
+            var reach = 0;
+            while (reach < wingSpan)
+            {
+                var next = reach + 1;
+                var swept = wingRootZ + (int)MathF.Round(wingSweep * next);
+                if (swept < 0 || swept >= len) break;
 
-            // Fins have a second stopping condition the spreading planforms do not: they are raised
-            // off whatever surface is under their column, and GrowWings skips any column with
-            // nothing under it. A steeply swept pair therefore ends where the hull ends, which on
-            // one probe ship left the marker at z=162 against fins that stopped at z=61.
-            if (p.WingStyle == WingStyle.TwinFin &&
-                TopFilledY(grid, Math.Max(1, wingRootX - 1) + next / 3, swept) is null) break;
+                // Fins have a second stopping condition the spreading planforms do not: they are
+                // raised off whatever surface is under their column, and GrowWings skips any column
+                // with nothing under it. A steeply swept pair therefore ends where the hull ends,
+                // which on one probe ship left the marker at z=162 against fins stopping at z=61.
+                if (p.WingStyle == WingStyle.TwinFin &&
+                    TopFilledY(grid, Math.Max(1, wingRootX - 1) + next / 3, swept) is null) break;
 
-            wingReach = next;
+                reach = next;
+            }
+
+            return reach;
         }
 
         var wingZ = Math.Clamp(wingRootZ + (int)MathF.Round(wingSweep * wingReach), 0, len - 1);
@@ -729,8 +742,13 @@ public static class VoxelShipGrower
         var towerX = primary.XOffset + env.SpineOffset(towerZ);
         var tower = new ShipAnchor(towerX, Deck(towerX, towerZ) + clear, towerZ);
 
+        // Same reasoning as the wing: with nacelles off, the pod is imaginary and its stand-off is
+        // computed from hull height, so on a tall ship the marker ends up a long way out in nothing.
+        // It falls back to the pylon root, which is on the hull and is where nacelles attach.
         var seat = SeatNacelles(p, hulls, layout, len, maxHH);
-        var nacelle = new ShipAnchor(seat.PodX + seat.Radius + clear, seat.PodY, seat.PodZ);
+        var nacelle = p.Nacelles
+            ? new ShipAnchor(seat.PodX + seat.Radius + clear, seat.PodY, seat.PodZ)
+            : new ShipAnchor(seat.RootX + clear, seat.RootY, seat.RootZ);
 
         return new ShipAnchors(bow, mid, wing, engine, cockpit, tower, nacelle, surface);
     }
