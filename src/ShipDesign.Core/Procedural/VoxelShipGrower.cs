@@ -521,12 +521,16 @@ public static class VoxelShipGrower
         }
     }
 
-    public static VoxelGrid Grow(ShipParameters p, HullClassPreset preset, out int lengthVoxels)
+    /// <summary>Everything a caller can learn from one grow: the voxels, the length they were laid
+    /// out over, and where the parameter-bearing features ended up.</summary>
+    public sealed record GrowResult(VoxelGrid Grid, int LengthVoxels, ShipAnchors Anchors);
+
+    public static GrowResult Grow(ShipParameters p, HullClassPreset preset)
     {
         var rng = new Random(p.Seed);
         var grid = new VoxelGrid();
 
-        lengthVoxels = Math.Max(40, (int)MathF.Round(p.Length / VoxelSize));
+        var lengthVoxels = Math.Max(40, (int)MathF.Round(p.Length / VoxelSize));
         var beamVoxels = Math.Max(14, (int)MathF.Round(p.Beam / VoxelSize));
         var maxHalfWidth = Math.Max(5, beamVoxels / 2);
         var maxHalfHeight = HalfHeightFor(p, preset);
@@ -603,7 +607,132 @@ public static class VoxelShipGrower
 
         DropDetachedFragments(grid);
 
-        return grid;
+        return new GrowResult(grid, lengthVoxels, DeriveAnchors(grid, p, preset, hulls, layout, lengthVoxels, maxHalfHeight));
+    }
+
+    /// <summary>
+    /// Works out where each family of parameters attaches, from the layout and the hull envelopes --
+    /// never from inside a growth pass. An anchor recorded by the pass that builds a feature
+    /// disappears exactly when the user needs it to switch that feature back on. See
+    /// <see cref="ShipAnchors"/>.
+    ///
+    /// The grid *is* read, for heights, and that is not a contradiction: what is read is whatever
+    /// surface is on top of a given column, which exists whether or not the optional structure that
+    /// would sit there was built. The envelope's deck line and the surface a structure actually
+    /// stands on are different heights on a chamfered or hollow hull, and every pass seats its
+    /// structure on the latter -- anchors taken from the former floated above their own ship.
+    ///
+    /// Each point is then nudged a few voxels clear of that surface, so the marker sits proud of the
+    /// hull rather than buried a voxel inside it.
+    /// </summary>
+    private static ShipAnchors DeriveAnchors(
+        VoxelGrid grid, ShipParameters p, HullClassPreset preset, IReadOnlyList<HullColumn> hulls,
+        Layout layout, int len, int maxHH)
+    {
+        var primary = hulls[0];
+        var env = primary.Envelope;
+        var clear = Math.Max(2, DetailUnit(len));
+
+        // The real deck under a column, falling back to the envelope where there is no hull there.
+        int Deck(int x, int z) => TopFilledY(grid, x, z) ?? env.DeckY(Math.Clamp(z, env.FirstZ, env.LastZ));
+
+        // Bow, midships flank and upper deck aft: three deliberately separated points, because
+        // Forme, Dimensions and Surface all describe the same hull and would otherwise stack three
+        // markers on one centroid.
+        var bowZ = env.FirstZ;
+        var bow = new ShipAnchor(
+            primary.XOffset + env.SpineOffset(bowZ), env.DeckFractionY(bowZ, 0.5f), Math.Max(0, bowZ - clear));
+
+        var midZ = env.SliceAt(0.5f);
+        var mid = new ShipAnchor(OuterEdge(hulls, midZ) + clear, env.CentreY, midZ);
+
+        var surfaceZ = env.SliceAt(0.72f);
+        var surfaceX = primary.XOffset + env.SpineOffset(surfaceZ) + HalfWidthOf(primary, surfaceZ) / 2;
+        var surface = new ShipAnchor(surfaceX, Deck(surfaceX, surfaceZ) + clear, surfaceZ);
+
+        // Out at the wingtip rather than at the root, mirroring GrowWings' span and sweep: at the
+        // root the marker would sit on the hull flank, indistinguishable from Dimensions.
+        var wingSpan = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
+        var wingSweep = MathF.Tan(
+            Math.Clamp(p.WingSweepDegrees, -MaxWingSweepDegrees, MaxWingSweepDegrees) * MathF.PI / 180f);
+
+        // Including the planform's own root offset, which GrowWings applies. Leaving it out to keep
+        // the marker from moving when the planform changes was the wrong instinct: the wing itself
+        // moves, and on a long hull that 6-16% shifted the root far enough to matter.
+        var wingRootOffset = p.WingStyle switch
+        {
+            WingStyle.Delta => 0.06f,
+            WingStyle.TwinFin => 0.16f,
+            WingStyle.Cross => 0.10f,
+            _ => 0f,
+        };
+        var wingRootZ = env.SliceAt(Math.Clamp(layout.WingCenter + wingRootOffset, 0.3f, 0.8f));
+
+        // Only as far out as the wing is actually built. GrowWings skips any station that falls off
+        // either end of the ship, so a steeply swept wing stops far short of its nominal span --
+        // and a marker placed at the nominal tip ended up a hull-length aft of the ship, pointing
+        // at nothing. Stepping outward until the swept station leaves the hull errs toward the
+        // ship, which is the right way to be wrong for something that has to look attached.
+        var wingRootX = OuterEdge(hulls, wingRootZ);
+        var wingReach = 0;
+        while (wingReach < wingSpan)
+        {
+            var next = wingReach + 1;
+            var swept = wingRootZ + (int)MathF.Round(wingSweep * next);
+            if (swept < 0 || swept >= len) break;
+
+            // Fins have a second stopping condition the spreading planforms do not: they are raised
+            // off whatever surface is under their column, and GrowWings skips any column with
+            // nothing under it. A steeply swept pair therefore ends where the hull ends, which on
+            // one probe ship left the marker at z=162 against fins that stopped at z=61.
+            if (p.WingStyle == WingStyle.TwinFin &&
+                TopFilledY(grid, Math.Max(1, wingRootX - 1) + next / 3, swept) is null) break;
+
+            wingReach = next;
+        }
+
+        var wingZ = Math.Clamp(wingRootZ + (int)MathF.Round(wingSweep * wingReach), 0, len - 1);
+
+        // Where the tip sits is most of what separates the three planforms, and getting it wrong
+        // shows: a flat wing tapers along the mid-line, but a cross splays four arms away from it,
+        // so the mid-line out at the tip is the empty middle of the X -- the worst place available.
+        // Twin fins do not spread at all; they splay by a third of the span and stand off the deck.
+        var finX = Math.Max(1, wingRootX - 1) + wingReach / 3;
+
+        var wing = p.WingStyle switch
+        {
+            WingStyle.TwinFin => new ShipAnchor(finX, Deck(finX, wingZ) + clear, wingZ),
+            WingStyle.Cross => new ShipAnchor(
+                wingRootX + wingReach + clear,
+                env.CentreY + (int)MathF.Round(wingReach * 0.55f),
+                wingZ),
+            _ => new ShipAnchor(wingRootX + wingReach + clear, env.CentreY, wingZ),
+        };
+
+        // This hull's stern, pushed aft into the exhaust plume so the marker does not land inside
+        // the engine housing.
+        var tailZ = env.LastZ;
+        var engine = new ShipAnchor(
+            primary.XOffset + env.SpineOffset(tailZ), env.CentreY, Math.Min(len - 1, tailZ + clear));
+
+        var cockpitZ = env.SliceAt(preset.NoseFraction * 1.15f);
+        var cockpitX = primary.XOffset + env.SpineOffset(cockpitZ);
+        var cockpit = new ShipAnchor(cockpitX, Deck(cockpitX, cockpitZ) + clear, cockpitZ);
+
+        // The station comes from the parameters, but the height is simply whatever is on top of that
+        // column: with a bridge there, that is the top of the bridge; without one, the bare deck
+        // where it would go. Adding the three tier heights on top of the measured surface -- the
+        // obvious thing to do -- counts the tower twice as soon as it exists, because the surface
+        // already is the tower.
+        var towerStation = Math.Clamp(p.TowerPosition + (layout.TowerCenter - 0.42f) * 0.5f, 0.08f, 0.95f);
+        var towerZ = env.SliceAt(towerStation);
+        var towerX = primary.XOffset + env.SpineOffset(towerZ);
+        var tower = new ShipAnchor(towerX, Deck(towerX, towerZ) + clear, towerZ);
+
+        var seat = SeatNacelles(p, hulls, layout, len, maxHH);
+        var nacelle = new ShipAnchor(seat.PodX + seat.Radius + clear, seat.PodY, seat.PodZ);
+
+        return new ShipAnchors(bow, mid, wing, engine, cockpit, tower, nacelle, surface);
     }
 
     /// <summary>
@@ -1265,9 +1394,16 @@ public static class VoxelShipGrower
         }
     }
 
-    private static void GrowNacelles(VoxelGrid grid, ShipParameters p, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
+    /// <summary>Where a nacelle and its pylon sit: the root on the hull flank and the pod out at the
+    /// end of it. Split out from <see cref="GrowNacelles"/> because <see cref="ShipAnchors"/> needs
+    /// the same point and has to have it even when nacelles are switched off -- and two copies of
+    /// this arithmetic would drift apart the first time either is touched.</summary>
+    private readonly record struct NacelleSeat(
+        int RootX, int RootY, int RootZ, int PodX, int PodY, int PodZ, int Radius, int HalfLength);
+
+    private static NacelleSeat SeatNacelles(
+        ShipParameters p, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
     {
-        var detail = DetailUnit(len);
         var radius = Math.Max(2, (int)MathF.Round(maxHH * 0.75f * p.NacelleWidth));
         var halfLength = Math.Max(4, (int)MathF.Round(len * 0.2f * p.NacelleLength));
 
@@ -1306,6 +1442,15 @@ public static class VoxelShipGrower
         // that reads as a warp nacelle rather than an engine pod bolted under a wing.
         var nacelleY = rootY + (int)MathF.Round((radius + 1) * p.NacelleRise);
         var nacelleZ = Math.Clamp(centerZ + (int)MathF.Round(len * 0.5f * p.NacelleSweep), halfLength, len - 1);
+
+        return new NacelleSeat(rootX, rootY, centerZ, nacelleX, nacelleY, nacelleZ, radius, halfLength);
+    }
+
+    private static void GrowNacelles(VoxelGrid grid, ShipParameters p, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
+    {
+        var detail = DetailUnit(len);
+        var (rootX, rootY, centerZ, nacelleX, nacelleY, nacelleZ, radius, halfLength) =
+            SeatNacelles(p, hulls, layout, len, maxHH);
 
         var pylonHalfThickness = Math.Max(1, detail);
         var pylonHalfChord = Math.Max(pylonHalfThickness,

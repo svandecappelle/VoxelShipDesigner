@@ -19,8 +19,17 @@ public static class ProceduralShipBuilder
     /// own geometry from it -- the studio view needs per-face occlusion, which is a property of
     /// the grid's neighbourhood and is gone by the time the model is a triangle soup.
     /// </summary>
-    public static VoxelGrid BuildVoxels(ShipParameters p) =>
-        VoxelShipGrower.Grow(p, HullClassPreset.All[p.HullClass], out _);
+    public static VoxelGrid BuildVoxels(ShipParameters p) => BuildVoxels(p, out _);
+
+    /// <summary>The same grid, together with the points the parameter groups attach to. An
+    /// overload rather than a signature change: most callers only want the voxels, and threading an
+    /// unused <c>out</c> through all of them would be noise.</summary>
+    public static VoxelGrid BuildVoxels(ShipParameters p, out ShipAnchors anchors)
+    {
+        var result = VoxelShipGrower.Grow(p, HullClassPreset.All[p.HullClass]);
+        anchors = result.Anchors;
+        return result.Grid;
+    }
 
     /// <summary>A call-sign-style code from the hull class prefix and the seed, e.g. "FTR-2291".</summary>
     public static string Designation(ShipParameters p) =>
