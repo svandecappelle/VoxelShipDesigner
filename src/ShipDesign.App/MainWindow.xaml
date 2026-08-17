@@ -229,7 +229,16 @@
                     </Border.Background>
                 </Border>
 
-                <h:HelixViewport3D x:Name="Viewport" Background="Transparent" ShowCoordinateSystem="False">
+                <!-- ZoomAroundMouseDownPoint is off by default, which means the wheel pulls toward the
+                     middle of the view: to look at a nacelle you zoom, then pan, then zoom again.
+                     Zooming toward the pointer is what makes a model viewer navigable, and it is
+                     the one default here that is plainly wrong for this application.
+
+                     Rotation is deliberately left on the camera target rather than the pointer.
+                     This is a turntable for looking at a whole ship, and a fixed pivot is what keeps
+                     the ship centred while it turns. -->
+                <h:HelixViewport3D x:Name="Viewport" Background="Transparent" ShowCoordinateSystem="False"
+                                   ZoomAroundMouseDownPoint="True">
                     <h:HelixViewport3D.DefaultCamera>
                         <PerspectiveCamera Position="18,12,22" LookDirection="-18,-12,-22" UpDirection="0,1,0" />
                     </h:HelixViewport3D.DefaultCamera>

@@ -15,7 +15,6 @@ namespace ShipDesign.App
     public partial class MainWindow : Window
     {
         private readonly DispatcherTimer _autoRotateTimer = new() { Interval = TimeSpan.FromMilliseconds(30) };
-        private double _autoRotateAngle;
 
         private ViewModels.MainViewModel? _viewModel;
         private TimeSpan _lastRenderTime = TimeSpan.MinValue;
@@ -449,6 +448,25 @@ namespace ShipDesign.App
             new StudioWindow(viewModel.Parameters, viewModel.Designation) { Owner = this }.Show();
         }
 
+        /// <summary>
+        /// Turns the camera about the ship on the spot.
+        ///
+        /// About the *ship*, which is not the world origin. The voxel grid starts at z=0 and runs
+        /// forward, so the origin sits at the bow rather than in the middle: measured over the eight
+        /// silhouettes it is between half and nearly all of the ship's own radius away from its
+        /// centre, and on the Imperial destroyer it is practically on the nose. Orbiting it swung
+        /// the ship through a circle almost as wide as the ship. The studio window hit this and
+        /// fixed it; this one never got the fix.
+        ///
+        /// It also poisoned everything else. Helix rotates and zooms about the camera target, which
+        /// is Position + LookDirection, so pointing the camera at the origin here left every later
+        /// hand-driven drag and every wheel notch pivoting on the bow too, long after the orbit had
+        /// been switched off again.
+        ///
+        /// The angle is read back from where the camera actually is on each tick rather than
+        /// accumulated, so dragging the view mid-orbit carries on from where the drag left it
+        /// instead of snapping back; the height is left alone, so the elevation is the user's.
+        /// </summary>
         private void StepAutoRotate()
         {
             // Suspended, not switched off. Writing AutoRotateToggle.IsChecked = false here would
@@ -460,16 +478,35 @@ namespace ShipDesign.App
             if (Viewport.Camera is not PerspectiveCamera camera)
                 return;
 
-            var position = camera.Position;
-            var radius = Math.Sqrt(position.X * position.X + position.Z * position.Z);
+            var centre = ShipCentre();
+            var offset = camera.Position - centre;
+
+            var radius = Math.Sqrt(offset.X * offset.X + offset.Z * offset.Z);
             if (radius < 0.01)
                 radius = 5;
 
-            _autoRotateAngle += 0.006;
-            var x = radius * Math.Cos(_autoRotateAngle);
-            var z = radius * Math.Sin(_autoRotateAngle);
-            camera.Position = new Point3D(x, position.Y, z);
-            camera.LookDirection = new Vector3D(-x, -position.Y, -z);
+            var angle = Math.Atan2(offset.Z, offset.X) + 0.006;
+            var position = new Point3D(
+                centre.X + radius * Math.Cos(angle),
+                camera.Position.Y,
+                centre.Z + radius * Math.Sin(angle));
+
+            camera.Position = position;
+            camera.LookDirection = centre - position;
+        }
+
+
+        /// <summary>Centre of the ship on screen, falling back to the origin only when there is no
+        /// ship yet.</summary>
+        private Point3D ShipCentre()
+        {
+            if (_viewModel?.ShipModel is not { } model)
+                return new Point3D(0, 0, 0);
+
+            var b = model.Bounds;
+            return b.IsEmpty
+                ? new Point3D(0, 0, 0)
+                : new Point3D(b.X + b.SizeX / 2, b.Y + b.SizeY / 2, b.Z + b.SizeZ / 2);
         }
     }
 }
