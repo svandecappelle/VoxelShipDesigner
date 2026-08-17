@@ -46,6 +46,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public IReadOnlyList<WingStyle> WingStyles { get; } = Enum.GetValues<WingStyle>();
     public IReadOnlyList<EngineStyle> EngineStyles { get; } = Enum.GetValues<EngineStyle>();
     public IReadOnlyList<CockpitStyle> CockpitStyles { get; } = Enum.GetValues<CockpitStyle>();
+    public IReadOnlyList<ShipSilhouette> Silhouettes { get; } = ShipSilhouette.All;
     public IReadOnlyList<HullArrangement> HullArrangements { get; } = Enum.GetValues<HullArrangement>();
     public IReadOnlyList<NacelleMount> NacelleMounts { get; } = Enum.GetValues<NacelleMount>();
     public IReadOnlyList<NacelleStyle> NacelleStyles { get; } = Enum.GetValues<NacelleStyle>();
@@ -157,6 +158,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand ApplySeedCommand { get; }
     public ICommand RerollSeedCommand { get; }
     public ICommand RandomizeShipCommand { get; }
+    public ICommand ApplySilhouetteCommand { get; }
     public ICommand SetHullColorCommand { get; }
     public ICommand SetAccentColorCommand { get; }
     public ICommand SetEngineGlowColorCommand { get; }
@@ -170,6 +172,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ApplySeedCommand = new RelayCommand(_ => ApplySeed());
         RerollSeedCommand = new RelayCommand(_ => RerollSeed());
         RandomizeShipCommand = new RelayCommand(_ => Randomize());
+        ApplySilhouetteCommand = new RelayCommand(s => ApplySilhouette((ShipSilhouette)s!));
         SetHullColorCommand = new RelayCommand(c => HullColor = (Color)c!);
         SetAccentColorCommand = new RelayCommand(c => AccentColor = (Color)c!);
         SetEngineGlowColorCommand = new RelayCommand(c => EngineGlowColor = (Color)c!);
@@ -201,13 +204,36 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Rebuild();
     }
 
+    /// <summary>Applies a named silhouette and refreshes the whole panel, since it moves most of
+    /// the parameters at once.</summary>
+    private void ApplySilhouette(ShipSilhouette silhouette)
+    {
+        silhouette.ApplyTo(_parameters);
+        OnPropertyChanged(string.Empty);
+        StatusText = $"Silhouette « {silhouette.Name} » appliquée — {silhouette.Summary}.";
+        Rebuild();
+    }
+
     private void Randomize()
     {
         _parameters.HullClass = HullClasses[_random.Next(HullClasses.Count)];
+
+        // The composite arrangement is a distinctive read, so it turns up sometimes rather than
+        // half the time -- but it does turn up. Leaving it out entirely, which this method did when
+        // the arrangement was added, made a whole half of the generator unreachable by the one
+        // button most likely to be pressed first.
+        _parameters.HullArrangement = _random.NextDouble() < 0.25
+            ? HullArrangement.Composite
+            : HullArrangement.Parallel;
+        _parameters.PrimaryHullFraction = 0.32f + (float)_random.NextDouble() * 0.26f;
+        _parameters.SecondaryHullDrop = 0.9f + (float)_random.NextDouble() * 1.6f;
+        _parameters.Deflector = _random.NextDouble() > 0.2;
+
         // Single hull most of the time: catamarans and trimarans are a distinctive silhouette,
         // and making them as common as the conventional layout would dilute that.
         _parameters.HullCount = _random.NextDouble() switch { < 0.65 => 1, < 0.85 => 2, _ => 3 };
         _parameters.HullSpacing = 0.6f + (float)_random.NextDouble() * 1.1f;
+
         _parameters.HullShape = HullShapes[_random.Next(HullShapes.Count)];
         _parameters.SecondaryHullShape = HullShapes[_random.Next(HullShapes.Count)];
         _parameters.Length = 6f + (float)_random.NextDouble() * 30f;
@@ -235,6 +261,42 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // Straddle both mounting idioms: slung underneath, or raised and swept back.
         _parameters.NacelleRise = -1.2f + (float)_random.NextDouble() * 2.6f;
         _parameters.NacelleSweep = (float)_random.NextDouble() * 0.4f;
+        _parameters.NacelleMount = NacelleMounts[_random.Next(NacelleMounts.Count)];
+        _parameters.NacelleStyle = _random.NextDouble() < 0.4 ? NacelleStyle.Warp : NacelleStyle.Thruster;
+        _parameters.PylonChord = 0.6f + (float)_random.NextDouble() * 2.4f;
+
+        // Composite ships get their shape choices narrowed, last so nothing above overrides them.
+        // Two hulls drawn independently from the full set would as often as not hang a slab under a
+        // slab, which is not a composite ship so much as two ships sharing a neck; and a saucer
+        // ship with wings on it stops reading as either thing.
+        if (_parameters.HullArrangement == HullArrangement.Composite)
+        {
+            _parameters.HullShape = _random.NextDouble() < 0.7 ? HullShape.Saucer : HullShape.Hammerhead;
+            _parameters.SecondaryHullShape = _random.NextDouble() < 0.6 ? HullShape.Spindle : HullShape.Dart;
+            _parameters.WingStyle = WingStyle.None;
+            _parameters.Nacelles = true;
+            _parameters.NacelleMount = NacelleMount.Secondary;
+            _parameters.NacelleStyle = NacelleStyle.Warp;
+            _parameters.NacelleRise = 0.8f + (float)_random.NextDouble() * 1.6f;
+            _parameters.PylonChord = 2f + (float)_random.NextDouble() * 2.5f;
+
+            // A composite ship is two hulls deep, so the same beam that suits one hull makes a
+            // gaunt pair. Kept off the bottom of the range rather than widened outright, which
+            // would push the far corner of length x beam past what the budget allows.
+            _parameters.Beam = MathF.Max(_parameters.Beam, 4f);
+        }
+
+        // The far corner of length x beam is over budget, and a composite ship stacks two hulls so
+        // it gets there sooner. Shrunk until it fits rather than drawn from ranges narrow enough to
+        // be safe everywhere: the button's whole job is to produce a ship, and one that lands on
+        // "gabarit trop grand" has produced nothing at all.
+        while (VoxelShipGrower.EstimateBoundingVoxels(_parameters) > MaxBoundingVoxels
+               && _parameters.Length > 5f)
+        {
+            _parameters.Length *= 0.9f;
+            _parameters.Beam *= 0.93f;
+        }
+
         _parameters.Seed = _random.Next(1000, 9999);
         // Ranges keep a random ship inside the reference art style rather than letting it land on
         // any hue at any lightness: a pale desaturated hull, a saturated mid-dark accent that

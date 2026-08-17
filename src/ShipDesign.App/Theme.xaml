@@ -5,6 +5,7 @@
     <conv:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     <conv:EnumLabelConverter x:Key="EnumLabelConverter" />
     <conv:HullShapeIconConverter x:Key="HullShapeIconConverter" />
+    <conv:HullArrangementIconConverter x:Key="HullArrangementIconConverter" />
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
     <!-- Palette, matching vessel-forge.html -->

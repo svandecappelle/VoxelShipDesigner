@@ -68,6 +68,24 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="16">
 
+                        <!-- Silhouettes : chacune pose d'un coup la vingtaine de réglages qui font
+                             un type de vaisseau reconnaissable, sans toucher à la graine ni à la
+                             livrée, qui appartiennent à l'utilisateur. -->
+                        <Expander Style="{StaticResource AccordionStyle}" Header="SILHOUETTES" IsExpanded="True">
+                            <ItemsControl ItemsSource="{Binding Silhouettes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                Content="{Binding Name}" ToolTip="{Binding Summary}"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                Padding="10,6" Margin="0,0,0,4"
+                                                Command="{Binding DataContext.ApplySilhouetteCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+
                         <!-- Classe de coque -->
                         <Expander Style="{StaticResource AccordionStyle}" Header="CLASSE DE COQUE" IsExpanded="True">
                             <StackPanel>
@@ -109,8 +127,16 @@
                                          SelectedItem="{Binding HullArrangement}" Margin="0,0,0,10">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" TextWrapping="Wrap"
-                                                       TextAlignment="Center" FontSize="9.5" />
+                                            <!-- Schematics are side views here, unlike the hull-shape ones:
+                                                 from above the two arrangements look identical, and the
+                                                 whole distinction lives in profile. -->
+                                            <StackPanel>
+                                                <Path Data="{Binding Converter={StaticResource HullArrangementIconConverter}}"
+                                                      Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                      Stretch="None" Width="44" Height="22" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" TextWrapping="Wrap"
+                                                           TextAlignment="Center" Margin="0,3,0,0" FontSize="9.5" />
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>

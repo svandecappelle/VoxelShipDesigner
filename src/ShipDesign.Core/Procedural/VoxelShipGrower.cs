@@ -600,6 +600,8 @@ public static class VoxelShipGrower
             inner[z] = Math.Max(0, Math.Min(candidate, halfWidth[z] - minRimVoxels));
         }
 
+        CloseEndHollows(halfWidth, inner, DetailUnit(len));
+
         return new Envelope
         {
             HalfWidth = halfWidth,
@@ -634,6 +636,40 @@ public static class VoxelShipGrower
 
         for (var z = first; z <= last; z++)
             if (halfWidth[z] < 1) halfWidth[z] = 1;
+    }
+
+    /// <summary>
+    /// Fills in the hollow over a hull's first and last few slices.
+    ///
+    /// A hollow slice is two arcs rather than one solid section. At the very ends of a hull there is
+    /// only one neighbouring slice for those arcs to hang from, and if it is narrower than the
+    /// hollow's inner radius they touch nothing at all -- the tip breaks off and exports as a pair
+    /// of loose crescents floating ahead of the ship. That is exactly what a fork does, whose
+    /// hollow is widest at the bow, which is also where the hull is thinnest.
+    ///
+    /// The ring already avoids this by ramping its hollow closed before either end. This does the
+    /// same thing for the shapes whose profile does not, and costs a solid cap a couple of voxels
+    /// deep -- invisible next to a bow that is tens of voxels across.
+    /// </summary>
+    private static void CloseEndHollows(int[] halfWidth, int[] inner, int depth)
+    {
+        var first = -1;
+        var last = -1;
+        for (var z = 0; z < halfWidth.Length; z++)
+        {
+            if (halfWidth[z] <= 0) continue;
+            if (first < 0) first = z;
+            last = z;
+        }
+
+        if (first < 0) return;
+
+        var cap = Math.Max(1, depth);
+        for (var i = 0; i < cap; i++)
+        {
+            if (first + i <= last) inner[first + i] = 0;
+            if (last - i >= first) inner[last - i] = 0;
+        }
     }
 
     private static float Noise(Random rng, float amplitude) => ((float)rng.NextDouble() - 0.5f) * 2f * amplitude;
@@ -966,8 +1002,17 @@ public static class VoxelShipGrower
                 {
                     // Fins stand vertically off the hull instead of spreading horizontally.
                     var finX = Math.Max(1, rootHalfWidth - 1) + offset / 3;
-                    for (var dy = 0; dy <= thickness * 2 + 1; dy++)
-                        grid.SetMirrored(finX, env.DeckY(z) + dy, z, VoxelMaterial.Hull);
+
+                    // Raised from the column's *real* surface, not from the envelope's centreline
+                    // deck. Out at the flank the chamfered deck sits well below Top[z], so starting
+                    // there left the whole fin hanging in mid-air -- which is what made a twin-fin
+                    // ship export as three separate pieces. Where there is no hull under the column
+                    // at all there is nothing to stand on, and the fin simply stops there.
+                    var surface = TopFilledY(grid, finX, z);
+                    if (surface is null) continue;
+
+                    for (var dy = 1; dy <= thickness * 2 + 2; dy++)
+                        grid.SetMirrored(finX, surface.Value + dy, z, VoxelMaterial.Hull);
                     continue;
                 }
 
