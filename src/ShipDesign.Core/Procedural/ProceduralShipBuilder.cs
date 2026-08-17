@@ -28,7 +28,9 @@ public static class ProceduralShipBuilder
 
     public static string MassClass(ShipParameters p)
     {
-        var volume = p.Length * p.Beam * p.Beam;
+        // Beam used to stand in for the depth as well, since the two were the same number in
+        // disguise. They are independent now, so the volume uses all three dimensions.
+        var volume = p.Length * p.Beam * p.Depth * 2f;
         if (volume > 4000) return "CAPITAL";
         if (volume > 800) return "HEAVY";
         if (volume > 150) return "MEDIUM";

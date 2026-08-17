@@ -111,6 +111,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public float HullSpacing { get => _parameters.HullSpacing; set { _parameters.HullSpacing = value; OnPropertyChanged(); Rebuild(); } }
     public float Length { get => _parameters.Length; set { _parameters.Length = value; OnPropertyChanged(); Rebuild(); } }
     public float Beam { get => _parameters.Beam; set { _parameters.Beam = value; OnPropertyChanged(); Rebuild(); } }
+    public float Depth { get => _parameters.Depth; set { _parameters.Depth = value; OnPropertyChanged(); Rebuild(); } }
     public float Taper { get => _parameters.Taper; set { _parameters.Taper = value; OnPropertyChanged(); Rebuild(); } }
     public float KeelFlatness { get => _parameters.KeelFlatness; set { _parameters.KeelFlatness = value; OnPropertyChanged(); Rebuild(); } }
     public int Decks { get => _parameters.Decks; set { _parameters.Decks = value; OnPropertyChanged(); Rebuild(); } }
@@ -243,6 +244,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.SecondaryHullShape = HullShapes[_random.Next(HullShapes.Count)];
         _parameters.Length = 6f + (float)_random.NextDouble() * 30f;
         _parameters.Beam = 1f + (float)_random.NextDouble() * 7f;
+        // Drawn independently of the beam, which is the whole point of it being its own dimension:
+        // random ships now include wide flat hulls and narrow deep ones, not only scaled cubes.
+        _parameters.Depth = 0.8f + (float)_random.NextDouble() * 4f;
         _parameters.Taper = (float)_random.NextDouble();
 
         // Mostly hulls with some keel chamfer left, but a flat-bottomed wedge turns up regularly

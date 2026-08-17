@@ -11,9 +11,21 @@ public sealed class HullClassPreset
     public required float NoseFraction { get; init; }
     public required float TailFraction { get; init; }
 
-    /// <summary>Max half-height as a fraction of max half-width -- how flat/wedge-like
-    /// (low) vs. boxy/round (high) the cross-section reads.</summary>
+    /// <summary>
+    /// How flat/wedge-like (low) vs. boxy/round (high) this class's cross-section reads.
+    ///
+    /// This used to be a fraction of the half-*width*, which made the beam slider silently control
+    /// the height as well: widening a ship made it taller, and a wide flat hull was unreachable at
+    /// any setting. It is now a modulation of the ship's own depth, relative to
+    /// <see cref="ReferenceHeightRatio"/> -- so the class still has a characteristic section, but
+    /// the dimension it scales is the one the user asked for.
+    /// </summary>
     public required float HeightRatio { get; init; }
+
+    /// <summary>The ratio a class of average boxiness has. A class sitting on this value takes the
+    /// requested depth as-is; the others read flatter or deeper than it in the same proportion they
+    /// always did.</summary>
+    public const float ReferenceHeightRatio = 0.65f;
 
     /// <summary>Random-walk step noise amplitude, relative to the hull's half-width (so a class
     /// stays equally rough at any voxel resolution). 0 = a smooth, repeatable envelope; higher =

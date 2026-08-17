@@ -59,6 +59,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.Deflector = true;
                 p.Length = 24f;
                 p.Beam = 6f;
+                p.Depth = 2.6f;
                 p.Taper = 0.45f;
                 p.Decks = 3;
                 p.WingStyle = WingStyle.None;
@@ -90,6 +91,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.HullShape = HullShape.Wedge;
                 p.Length = 34f;
                 p.Beam = 9f;
+                p.Depth = 3.4f;
 
                 // The taper is what makes the planform a dagger rather than a doorstop, and the flat
                 // keel is what makes its section a knife. Neither alone reads as Imperial.
@@ -127,6 +129,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.HullShape = HullShape.Spindle;
                 p.Length = 8f;
                 p.Beam = 2f;
+                p.Depth = 1.1f;
                 p.Taper = 0.7f;
                 p.KeelFlatness = 0.2f;
                 p.Decks = 1;
@@ -155,6 +158,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.HullShape = HullShape.Dart;
                 p.Length = 9f;
                 p.Beam = 2.6f;
+                p.Depth = 1.4f;
                 p.Taper = 0.65f;
                 p.Decks = 1;
                 p.WingStyle = WingStyle.Swept;
@@ -191,6 +195,11 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 // here, and a preset button that takes a second to answer feels broken.
                 p.Length = 26f;
                 p.Beam = 7.5f;
+
+                // Boxy, but a freighter's class ratio already deepens it by 40% and the bridge mast
+                // scales off the hull's half-height -- asking for 5.5 m here gave a 26 m ship a mast
+                // a hundred voxels tall.
+                p.Depth = 3.2f;
                 p.Taper = 0.15f;
                 p.Decks = 6;
                 p.WingStyle = WingStyle.None;
@@ -216,6 +225,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.HullShape = HullShape.Wedge;
                 p.Length = 18f;
                 p.Beam = 3.4f;
+                p.Depth = 2.0f;
                 p.Taper = 0.5f;
                 p.Decks = 2;
                 p.WingStyle = WingStyle.TwinFin;
@@ -241,6 +251,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.Length = 20f;
                 p.Beam = 5f;
                 p.Taper = 0.4f;
+                p.Depth = 1.6f;
                 p.Decks = 5;
                 p.WingStyle = WingStyle.None;
                 p.EngineCount = 3;
@@ -264,6 +275,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.Length = 20f;
                 p.Beam = 5f;
                 p.Taper = 0.3f;
+                p.Depth = 2.2f;
                 p.Decks = 3;
                 p.WingStyle = WingStyle.None;
                 p.EngineCount = 2;

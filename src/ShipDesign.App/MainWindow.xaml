@@ -215,6 +215,13 @@
                                 <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="1" Value="{Binding Taper}" Margin="0,0,0,10" />
 
                                 <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Creux (hauteur)" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding Depth, StringFormat='{}{0:0.0} M'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.3" Maximum="12" Value="{Binding Depth}" Margin="0,0,0,10"
+                                        ToolTip="Hauteur de coque, indépendante du maître-bau. La classe module encore la section : un cargo reste plus cubique qu'un croiseur à creux égal." />
+
+                                <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Quille plate" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding KeelFlatness, StringFormat='{}{0:P0}'}" />
                                 </Grid>

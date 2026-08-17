@@ -38,6 +38,16 @@ public sealed class ShipParameters
 
     public float Length { get; set; } = 14f;
     public float Beam { get; set; } = 3.2f;
+
+    /// <summary>
+    /// Moulded depth: how tall the hull is, independent of how wide it is.
+    ///
+    /// Height used to be derived from the beam alone, so the width slider moved both and a hull
+    /// could not be made wide and flat, or narrow and tall, at any setting. The class's
+    /// <see cref="HullClassPreset.HeightRatio"/> still modulates this, so a freighter stays boxier
+    /// than a cruiser at the same depth.
+    /// </summary>
+    public float Depth { get; set; } = 1.9f;
     public float Taper { get; set; } = 0.5f;
     public int Decks { get; set; } = 2;
 

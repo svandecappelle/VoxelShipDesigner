@@ -41,6 +41,17 @@ public static class VoxelShipGrower
     public const int MaxDecks = 12;
 
     /// <summary>
+    /// Half-height of the hull, from the requested depth and the class's own boxiness.
+    ///
+    /// Deliberately not a function of the beam. It was, and that made the width slider move the
+    /// height with it: there was no way to ask for a wide flat hull, and every ship widened to look
+    /// broader came out taller in the same breath.
+    /// </summary>
+    public static int HalfHeightFor(ShipParameters p, HullClassPreset preset) =>
+        Math.Max(2, (int)MathF.Round(
+            p.Depth / VoxelSize * 0.5f * preset.HeightRatio / HullClassPreset.ReferenceHeightRatio));
+
+    /// <summary>
     /// Bounding volume in voxels the ship would occupy, without growing it.
     ///
     /// Length and beam multiply -- the grid is a volume -- so neither slider's maximum tells you
@@ -56,10 +67,11 @@ public static class VoxelShipGrower
         var beam = Math.Max(14, (int)MathF.Round(p.Beam / VoxelSize));
         var halfWidth = Math.Max(5, beam / 2);
 
-        // Height always comes from the beam. A disc is wide but no taller for it -- a saucer is a
-        // lens, not a sphere -- and deriving the height from the disc's radius overstated a saucer
-        // by a factor of ten, which was enough to have the budget refuse shapes that cost little.
-        var halfHeight = Math.Max(2, (int)MathF.Round(halfWidth * preset.HeightRatio));
+        // Height comes from the depth, never from a width. A disc is wide but no taller for it -- a
+        // saucer is a lens, not a sphere -- and deriving the height from the disc's radius overstated
+        // a saucer by a factor of ten, which was enough to have the budget refuse shapes that cost
+        // little.
+        var halfHeight = HalfHeightFor(p, preset);
 
         // Across the beam, though, a disc really does take its width from the length.
         var planHalfWidth = HullShapeProfile.IsDisc(p.HullShape)
@@ -484,7 +496,7 @@ public static class VoxelShipGrower
         lengthVoxels = Math.Max(40, (int)MathF.Round(p.Length / VoxelSize));
         var beamVoxels = Math.Max(14, (int)MathF.Round(p.Beam / VoxelSize));
         var maxHalfWidth = Math.Max(5, beamVoxels / 2);
-        var maxHalfHeight = Math.Max(2, (int)MathF.Round(maxHalfWidth * preset.HeightRatio));
+        var maxHalfHeight = HalfHeightFor(p, preset);
 
         // Drawn before the envelopes so the jitter does not shift when a second envelope is
         // generated for an outrigger -- otherwise adding a hull would also move the wings.
@@ -578,7 +590,13 @@ public static class VoxelShipGrower
 
         // Jaggedness is a *relative* roughness: scaling it by the hull size keeps a "rough"
         // class equally rough at any resolution, instead of getting smoother as voxels shrink.
+        //
+        // Each axis is roughened in proportion to its own extent. Using the half-width for all three
+        // left the deck and keel roughness scaled by the beam, which is a second, quieter way for the
+        // width slider to move the height: a wide hull's top wandered a voxel higher than a narrow
+        // one's at the same depth.
         var noiseScale = preset.Jaggedness * maxHW * 0.13f;
+        var heightNoiseScale = preset.Jaggedness * maxHH * 0.13f;
 
         // Long-wavelength bulges/waists, one independent set per axis. Unlike the walk noise
         // these survive smoothing and rounding, so they are what makes two seeds read as
@@ -618,8 +636,8 @@ public static class VoxelShipGrower
             // Upper clamps leave headroom above the nominal size so a wave crest can actually
             // bulge the hull instead of being flattened against the limit.
             cw = Math.Clamp(cw + (targetW - cw) * 0.5f + Noise(rng, noiseScale), 0f, maxHW * 1.45f);
-            ct = Math.Clamp(ct + (targetTop - ct) * 0.5f + Noise(rng, noiseScale * 0.6f), 0f, maxHH * 1.6f);
-            cb = Math.Clamp(cb + (targetBottom - cb) * 0.5f + Noise(rng, noiseScale * 0.45f), 0f, maxHH * 1.3f);
+            ct = Math.Clamp(ct + (targetTop - ct) * 0.5f + Noise(rng, heightNoiseScale * 0.6f), 0f, maxHH * 1.6f);
+            cb = Math.Clamp(cb + (targetBottom - cb) * 0.5f + Noise(rng, heightNoiseScale * 0.45f), 0f, maxHH * 1.3f);
 
             w[z] = cw;
             top[z] = ct;
