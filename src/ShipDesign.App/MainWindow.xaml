@@ -647,6 +647,25 @@
                         <Line X1="55" Y1="32" X2="64" Y2="32" Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" />
                     </Grid>
                 </StackPanel>
+
+                <!-- Settings anchored on the ship. Last child of the grid so it sits above the
+                     viewport, and a Canvas rather than a Popup: a Popup's content lives under its
+                     own PopupRoot, where the RelativeSource AncestorType=Window bindings this file
+                     already uses would silently resolve to null.
+
+                     Background is left unset rather than Transparent. A null background is not
+                     hit-testable, so camera drags pass straight through the empty areas of the
+                     overlay to the viewport underneath; Transparent would swallow every one of
+                     them. ClipToBounds because a Grid does not clip, and a marker near the edge
+                     would otherwise be drawn over the rail and the status bar. -->
+                <Canvas x:Name="AnchorOverlay" ClipToBounds="True">
+                    <Border x:Name="TestPin" Visibility="Collapsed"
+                            Background="#CC0A1F2E" BorderBrush="{StaticResource AccentAmberBrush}"
+                            BorderThickness="1.5" CornerRadius="9" Padding="7,3" IsHitTestVisible="False">
+                        <TextBlock Text="AILES" FontSize="9.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource AccentAmberBrush}" />
+                    </Border>
+                </Canvas>
             </Grid>
         </Grid>
 

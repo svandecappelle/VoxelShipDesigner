@@ -7,10 +7,12 @@ namespace ShipDesign.Core.Procedural;
 /// the UI layer needs for the procedural generator.</summary>
 public static class ProceduralShipBuilder
 {
-    public static ModelRoot Build(ShipParameters p)
+    public static ModelRoot Build(ShipParameters p) => Build(p, out _);
+
+    public static ModelRoot Build(ShipParameters p, out ShipAnchors anchors)
     {
         var scene = new SceneBuilder();
-        VoxelMesher.AddToScene(scene, BuildVoxels(p), VoxelShipGrower.VoxelSize, p);
+        VoxelMesher.AddToScene(scene, BuildVoxels(p, out anchors), VoxelShipGrower.VoxelSize, p);
         return scene.ToGltf2();
     }
 

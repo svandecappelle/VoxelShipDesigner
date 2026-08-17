@@ -39,6 +39,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _buildPending;
     private bool _isGenerating;
     private Model3D? _shipModel;
+    private ShipAnchors? _anchors;
     private string _statusText = "";
     private string _seedText;
     private string _designation = "";
@@ -166,6 +167,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public Color CockpitTintColor { get => ToWpf(_parameters.CockpitTintColor); set { _parameters.CockpitTintColor = ToShip(value); OnPropertyChanged(); Rebuild(); } }
 
     public Model3D? ShipModel { get => _shipModel; private set { _shipModel = value; OnPropertyChanged(); } }
+
+    /// <summary>Where each family of settings attaches to the ship on screen, in voxel coordinates.
+    /// Null until the first build finishes.</summary>
+    public ShipAnchors? Anchors { get => _anchors; private set { _anchors = value; OnPropertyChanged(); } }
 
     /// <summary>Whether a generation is running. Drives the busy indicator, so a build that takes
     /// seconds looks like work in progress rather than like a frozen application.</summary>
@@ -419,6 +424,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     stopwatch.Stop();
 
                     _currentModel = built.Model;
+
+                    // Assigned in the same block as the visual, never separately: markers describing
+                    // a different ship from the one on screen would be worse than no markers.
+                    Anchors = built.Anchors;
                     ShipModel = built.Visual;
                     Designation = built.Designation;
                     MassClass = built.MassClass;
@@ -441,19 +450,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     private sealed record Built(
-        SharpGLTF.Schema2.ModelRoot Model, Model3D Visual, string Designation, string MassClass, int Triangles);
+        SharpGLTF.Schema2.ModelRoot Model, Model3D Visual, string Designation, string MassClass, int Triangles,
+        ShipAnchors Anchors);
 
     /// <summary>Everything that can be done off the UI thread. The visual comes back frozen, which
     /// is what makes it legal to hand a WPF object built on a worker to the dispatcher.</summary>
     private static Built Generate(ShipParameters p)
     {
-        var model = ProceduralShipBuilder.Build(p);
+        var model = ProceduralShipBuilder.Build(p, out var anchors);
         return new Built(
             model,
             GltfMeshConverter.ToModel3DGroup(model),
             ProceduralShipBuilder.Designation(p),
             ProceduralShipBuilder.MassClass(p),
-            ProceduralShipBuilder.CountTriangles(model));
+            ProceduralShipBuilder.CountTriangles(model),
+            anchors);
     }
 
     private void Export()
