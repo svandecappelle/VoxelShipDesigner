@@ -164,6 +164,17 @@ public static class VoxelShipGrower
         }
 
         /// <summary>
+        /// The slice a fraction of the way along *this hull*, which is not the same as a fraction
+        /// of the ship once a hull can occupy part of it. A bridge placed 42% along a ship whose
+        /// saucer stops at 31% is placed past the end of the saucer, on nothing at all.
+        /// </summary>
+        public int SliceAt(float fraction)
+        {
+            int first = FirstZ, last = LastZ;
+            return Math.Clamp(first + (int)MathF.Round(Math.Clamp(fraction, 0f, 1f) * (last - first)), first, last);
+        }
+
+        /// <summary>
         /// This envelope moved to a new position along the ship and a new height, padded with empty
         /// slices either side. Padding rather than shortening the arrays keeps every pass indexing
         /// by ship-wide z, which is what makes a hull that occupies part of the ship a small change
@@ -316,16 +327,24 @@ public static class VoxelShipGrower
         {
             if (forward.Envelope.HalfWidth[z] < 1 || aft.Envelope.HalfWidth[z] < 1) continue;
 
+            // Seated on the aft hull's spine rather than on the centreline. On a hollow engineering
+            // hull -- a ring, a fork -- the centreline is the hole, so a neck dropped down x=0 meets
+            // nothing at the bottom and the two hulls stay separate solids. Offsetting also turns
+            // the single dorsal into a pair of struts once mirrored, which is the right answer for a
+            // hull that has two flanks and no middle.
+            var spine = aft.Envelope.SpineOffset(z);
+
             for (var dx = -halfThickness; dx <= halfThickness; dx++)
             {
-                if (!Section(forward.Envelope, z, dx, out _, out var forwardKeel)) continue;
-                if (!Section(aft.Envelope, z, dx, out var aftDeck, out _)) continue;
+                var x = spine + dx;
+                if (!Section(forward.Envelope, z, x, out _, out var forwardKeel)) continue;
+                if (!Section(aft.Envelope, z, x, out var aftDeck, out _)) continue;
 
                 // Overlap the ends by a voxel each so the neck fuses with both hulls rather than
                 // merely touching them -- a shared face is not a shared voxel, and the flood fill
                 // that checks a ship is one piece walks voxels.
                 for (var y = aftDeck - 1; y <= forwardKeel + 1; y++)
-                    grid.SetMirrored(dx, y, z, VoxelMaterial.Hull);
+                    grid.SetMirrored(x, y, z, VoxelMaterial.Hull);
             }
         }
 
@@ -344,30 +363,61 @@ public static class VoxelShipGrower
     {
         var env = aft.Envelope;
 
-        // Walk aft from the bow to the first slice broad enough to carry a dish worth seeing. Fixing
-        // the position at a set distance behind the tip does not work: how fast a bow opens out
-        // depends entirely on the planform, and on a slow taper that lands on a slice one voxel
-        // wide, where the dish silently comes out as nothing.
-        // Far enough aft that the hull has reached most of its section. Stopping at the first slice
-        // merely wide enough puts the dish where the bow is still shallow, and since a dish cannot
-        // be taller than the hull it sits on, that caps it at a few voxels however wide the hull
-        // eventually gets.
+        // The dish is sized off the hull's fullest section, so it is worth having, but it is *drawn*
+        // on the hull's forward-facing surface wherever that turns out to be. Those are two
+        // different slices and conflating them is what made an earlier version invisible: it sized
+        // the dish at the broad slice and then searched for a surface starting just ahead of that
+        // slice, where the hull is already solid, so every voxel of the dish was painted inside the
+        // bow with material in front of it.
         var wanted = Math.Max(3, (int)MathF.Round(env.HalfWidth.Max() * 0.8f));
-        var noseZ = -1;
+        var broadZ = -1;
         for (var z = env.FirstZ; z <= env.LastZ; z++)
-            if (env.HalfWidth[z] >= wanted) { noseZ = z; break; }
+            if (env.HalfWidth[z] >= wanted) { broadZ = z; break; }
 
-        if (noseZ < 0) return;
+        if (broadZ < 0) return;
 
-        var halfWidth = env.HalfWidth[noseZ];
-        var halfHeight = Math.Max(1, (env.Top[noseZ] + env.Bottom[noseZ]) / 2);
+        var halfWidth = env.HalfWidth[broadZ];
+        var halfHeight = Math.Max(1, (env.Top[broadZ] + env.Bottom[broadZ]) / 2);
         var radius = Math.Max(3, (int)MathF.Round(MathF.Min(halfWidth, halfHeight) * 0.8f));
-        var centreY = env.CentreY + (env.Top[noseZ] - env.Bottom[noseZ]) / 2;
+        var centreY = env.CentreY + (env.Top[broadZ] - env.Bottom[broadZ]) / 2;
 
         var depth = Math.Max(1, DetailUnit(len));
         var rim = Math.Max(1, radius / 4);
-        var search = Math.Max(4, (int)MathF.Round(len * 0.06f));
 
+        // Build a short cylindrical boss over the bow, then face it with the dish.
+        //
+        // A deflector is a flat disc facing forward, and a tapering bow has no flat face to put one
+        // on. Painting the cone's surface instead wraps the dish over a dozen slices, where it reads
+        // as a lit nose rather than as a dish. Boring a socket *out* of the bow gives a face but is
+        // not safe: the bore's centre is taken at the broad slice while the hull's own mid-line
+        // wanders forward of it, so the cylinder misses part of some sections and leaves slivers
+        // behind -- ten of twenty-four composite ships came apart.
+        //
+        // Filling the cone out to a cylinder does the same job by adding rather than removing, and
+        // added material welded onto the hull cannot disconnect anything.
+        // Anchored at the hull's frontmost slice, not a little behind it: a boss set back from the
+        // tip has the bow's own cone standing in front of it, so its face is not the front of
+        // anything and the dish is buried again -- which is exactly what the first two attempts did.
+        var bossLength = Math.Max(2, depth);
+        var bossZ = env.FirstZ;
+
+        for (var z = bossZ; z <= bossZ + bossLength && z < len; z++)
+        {
+            // On a hollow bow -- a ring, a fork -- the centreline is the hole, so a boss sized only
+            // for the dish sits in mid-air inside it and floats off with the dish on its face. The
+            // plug widens to meet the hull's inner rim wherever there is one; on a solid hull the
+            // inner rim is zero and this is exactly the dish's own radius.
+            var plug = Math.Max(radius, env.InnerHalfWidth[z] + 1);
+
+            for (var dx = -plug; dx <= plug; dx++)
+                for (var dy = -plug; dy <= plug; dy++)
+                {
+                    if (dx * dx + dy * dy > plug * plug) continue;
+                    grid.SetMirrored(aft.XOffset + dx, centreY + dy, z, VoxelMaterial.Hull);
+                }
+        }
+
+        // The boss's own front face, which is flat by construction.
         for (var dx = -radius; dx <= radius; dx++)
             for (var dy = -radius; dy <= radius; dy++)
             {
@@ -377,20 +427,11 @@ public static class VoxelShipGrower
                 var x = aft.XOffset + dx;
                 var y = centreY + dy;
 
-                // Walk aft until the bow surface is found at this column, rather than assuming the
-                // bow is a flat plane at noseZ. It is not: the section chamfers, so a fixed plane
-                // finds material only near the middle of the dish and the rest silently vanishes.
-                var frontZ = -1;
-                for (var z = Math.Max(0, noseZ - 2); z < Math.Min(len, noseZ + search); z++)
-                    if (grid.IsFilled(x, y, z)) { frontZ = z; break; }
-
-                if (frontZ < 0) continue;
-
                 // The outer annulus is the housing, the inner disc is the emitter.
                 var housing = d2 > (radius - rim) * (radius - rim);
                 for (var dz = 0; dz < depth; dz++)
                 {
-                    var z = frontZ + dz;
+                    var z = bossZ + dz;
                     if (z >= len || !grid.IsFilled(x, y, z)) break;
                     grid.SetMirrored(x, y, z, housing ? VoxelMaterial.HullDark : VoxelMaterial.Glow);
                 }
@@ -600,7 +641,7 @@ public static class VoxelShipGrower
             inner[z] = Math.Max(0, Math.Min(candidate, halfWidth[z] - minRimVoxels));
         }
 
-        CloseEndHollows(halfWidth, inner, DetailUnit(len));
+        CloseUnreachableHollows(halfWidth, inner);
 
         return new Envelope
         {
@@ -639,19 +680,20 @@ public static class VoxelShipGrower
     }
 
     /// <summary>
-    /// Fills in the hollow over a hull's first and last few slices.
+    /// Narrows a hollow wherever it would leave a slice unable to reach its neighbours.
     ///
-    /// A hollow slice is two arcs rather than one solid section. At the very ends of a hull there is
-    /// only one neighbouring slice for those arcs to hang from, and if it is narrower than the
-    /// hollow's inner radius they touch nothing at all -- the tip breaks off and exports as a pair
-    /// of loose crescents floating ahead of the ship. That is exactly what a fork does, whose
-    /// hollow is widest at the bow, which is also where the hull is thinnest.
+    /// A hollow slice is two arcs rather than one solid section, spanning the radii between the
+    /// inner and outer edges. Two adjacent slices are only joined if those spans overlap, so a slice
+    /// whose hollow is wider than the neighbouring slice's whole half-width touches nothing there.
+    /// A fork's hollow is widest at the bow, which is also where the hull is thinnest, and its
+    /// prongs came off as loose crescents floating ahead of the ship.
     ///
-    /// The ring already avoids this by ramping its hollow closed before either end. This does the
-    /// same thing for the shapes whose profile does not, and costs a solid cap a couple of voxels
-    /// deep -- invisible next to a bow that is tens of voxels across.
+    /// Clamping each slice's inner radius to the narrower of its two neighbours' half-widths is the
+    /// exact condition for the spans to overlap. Simply filling the hollow at the hull's end slices
+    /// -- a first attempt at this -- fixes one direction and breaks the other: the solid plug it
+    /// leaves at slice zero then has no neighbour in the hollow slice behind it.
     /// </summary>
-    private static void CloseEndHollows(int[] halfWidth, int[] inner, int depth)
+    private static void CloseUnreachableHollows(int[] halfWidth, int[] inner)
     {
         var first = -1;
         var last = -1;
@@ -664,11 +706,16 @@ public static class VoxelShipGrower
 
         if (first < 0) return;
 
-        var cap = Math.Max(1, depth);
-        for (var i = 0; i < cap; i++)
+        for (var z = first; z <= last; z++)
         {
-            if (first + i <= last) inner[first + i] = 0;
-            if (last - i >= first) inner[last - i] = 0;
+            if (inner[z] <= 0) continue;
+
+            // A hull end has only one neighbour, so only that one constrains it.
+            var reach = int.MaxValue;
+            if (z > first) reach = Math.Min(reach, halfWidth[z - 1]);
+            if (z < last) reach = Math.Min(reach, halfWidth[z + 1]);
+
+            if (inner[z] > reach) inner[z] = Math.Max(0, reach);
         }
     }
 
@@ -1151,7 +1198,7 @@ public static class VoxelShipGrower
     private static void GrowSuperstructure(VoxelGrid grid, ShipParameters p, HullColumn primary, Layout layout, int len, int maxHH)
     {
         var env = primary.Envelope;
-        var centerZ = Math.Clamp((int)MathF.Round(Math.Clamp(layout.TowerCenter, 0.25f, 0.7f) * (len - 1)), 0, len - 1);
+        var centerZ = env.SliceAt(Math.Clamp(layout.TowerCenter, 0.25f, 0.7f));
         // Floored just above zero rather than at 0.4: the point of a low setting is a bridge that
         // barely breaks the deck line, and a floor of 0.4 made the bottom of the slider's travel
         // do nothing at all.
@@ -1207,7 +1254,7 @@ public static class VoxelShipGrower
         for (var i = 0; i < p.TurretCount; i++)
         {
             var t = (i + 0.5f) / p.TurretCount;
-            var z = Math.Clamp((int)MathF.Round((0.2f + t * spread) * (len - 1)), baseRadius + 1, len - baseRadius - 2);
+            var z = Math.Clamp(primary.Envelope.SliceAt(0.2f + t * spread), baseRadius + 1, len - baseRadius - 2);
             var hw = HalfWidthOf(primary, z);
             if (hw < 2) continue;
 
@@ -1331,7 +1378,7 @@ public static class VoxelShipGrower
     private static void CarveCockpit(VoxelGrid grid, ShipParameters p, HullClassPreset preset, HullColumn primary, int len)
     {
         var size = Math.Max(0.1f, p.CockpitSize);
-        var centerZ = Math.Clamp((int)MathF.Round(preset.NoseFraction * 1.15f * (len - 1)), 2, len - 3);
+        var centerZ = primary.Envelope.SliceAt(preset.NoseFraction * 1.15f);
         var halfLength = Math.Max(2, (int)MathF.Round(len * 0.07f * size));
         var detail = DetailUnit(len);
 
