@@ -273,29 +273,8 @@
                         </Expander>
 
                         <!-- Ailes -->
-                        <Expander Style="{StaticResource AccordionStyle}" Header="AILES" IsExpanded="False">
-                            <StackPanel>
-                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding WingStyles}" SelectedItem="{Binding WingStyle}" Margin="0,0,0,6">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Envergure" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSpan, StringFormat='{}{0:0.0} M'}" />
-                                </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="36" Value="{Binding WingSpan}" Margin="0,0,0,10" />
-
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Angle de flèche" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSweepDegrees, StringFormat='{}{0:0}°'}" />
-                                </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-30" Maximum="85" Value="{Binding WingSweepDegrees}" />
-                            </StackPanel>
-                        </Expander>
+                        <!-- AILES now lives on the ship itself, as an anchored panel over the
+                             viewport, rather than as a section here. -->
 
                         <!-- Propulsion -->
                         <Expander Style="{StaticResource AccordionStyle}" Header="PROPULSION" IsExpanded="False">
@@ -659,11 +638,62 @@
                      them. ClipToBounds because a Grid does not clip, and a marker near the edge
                      would otherwise be drawn over the rail and the status bar. -->
                 <Canvas x:Name="AnchorOverlay" ClipToBounds="True">
-                    <Border x:Name="TestPin" Visibility="Collapsed"
-                            Background="#CC0A1F2E" BorderBrush="{StaticResource AccentAmberBrush}"
-                            BorderThickness="1.5" CornerRadius="9" Padding="7,3" IsHitTestVisible="False">
-                        <TextBlock Text="AILES" FontSize="9.5" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AccentAmberBrush}" />
+                    <!-- Drawn before the marker and the panel so it passes under both. Not
+                         hit-testable: a stroked line does test along its own path, and this one
+                         crosses the ship on its way to the panel. -->
+                    <Polyline x:Name="LeaderLine" Visibility="Collapsed" IsHitTestVisible="False"
+                              Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1"
+                              StrokeDashArray="3 3" Opacity="0.85" />
+
+                    <ToggleButton x:Name="WingPin" Style="{StaticResource AnchorPinStyle}" Content="AILES"
+                                  Visibility="Collapsed" Checked="OnPinToggled" Unchecked="OnPinToggled" />
+
+                    <!-- Width is explicit and not negotiable: a Canvas measures its children against
+                         infinite space, so without one nothing ever wraps and the panel grows until
+                         it runs off the view. MaxHeight is set from code, against the overlay. -->
+                    <Border x:Name="AnchorPanel" Visibility="Collapsed" Focusable="True" Width="258"
+                            Background="{StaticResource BgPanelBrush}"
+                            BorderBrush="{StaticResource LineCyanBrush}" BorderThickness="1"
+                            CornerRadius="3">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#000000" BlurRadius="18" ShadowDepth="4"
+                                              Direction="270" Opacity="0.55" />
+                        </Border.Effect>
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Background="{StaticResource BgPanelAltBrush}">
+                                <TextBlock x:Name="AnchorPanelTitle" Text="AILES" Margin="12,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="10.5"
+                                           FontWeight="Bold" Foreground="{StaticResource LineCyanBrush}" />
+                                <Button Content="✕" Style="{StaticResource PanelCloseButtonStyle}"
+                                        HorizontalAlignment="Right" Click="OnClosePanel"
+                                        ToolTip="Fermer (Échap)" />
+                            </Grid>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,10,12,12">
+                                <StackPanel>
+                                    <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding WingStyles}" SelectedItem="{Binding WingStyle}" Margin="0,0,0,6">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Envergure" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSpan, StringFormat='{}{0:0.0} M'}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.5" Maximum="36" Value="{Binding WingSpan}" Margin="0,0,0,10" />
+
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Angle de flèche" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSweepDegrees, StringFormat='{}{0:0}°'}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-30" Maximum="85" Value="{Binding WingSweepDegrees}" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
                     </Border>
                 </Canvas>
             </Grid>

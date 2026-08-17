@@ -317,6 +317,14 @@
     <!-- ============ Toggle switch (auto-rotate) ============ -->
 
     <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
+        <!-- The template paints fixed colours, so a disabled switch looked exactly like an enabled
+             one. It has a disabled state now: the orbit is suspended while an anchored panel is
+             open, and a control that does nothing has to look like it. -->
+        <Style.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.35" />
+            </Trigger>
+        </Style.Triggers>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
@@ -332,6 +340,82 @@
                             <Setter TargetName="Thumb" Property="Fill" Value="{StaticResource AccentAmberBrush}" />
                             <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
                             <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Anchored settings ============ -->
+
+    <!-- A marker sitting on the part of the ship its settings control. Deliberately a bare dot with
+         the label only on hover: eight of these are on screen at once, over the ship itself, and
+         eight permanent labels would be a second sidebar drawn on top of the model.
+
+         Two details the template cannot do without. The root needs a Background, or only the 11px
+         dot is clickable rather than the whole 30px square — a null background is not hit-testable.
+         And the label sits in a Canvas so that revealing it does not change the button's layout
+         size: the dot is centred on the anchor, and a label that grew the button would shove the
+         dot off the very thing it is pointing at, on hover, every time. -->
+    <Style x:Key="AnchorPinStyle" TargetType="ToggleButton">
+        <Setter Property="Width" Value="30" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid Background="Transparent">
+                        <Ellipse x:Name="Halo" Width="26" Height="26" Opacity="0"
+                                 Fill="{StaticResource AccentAmberDimBrush}" />
+                        <Ellipse x:Name="Dot" Width="11" Height="11"
+                                 Fill="{StaticResource AccentAmberBrush}"
+                                 Stroke="{StaticResource BgDeepBrush}" StrokeThickness="2" />
+                        <Canvas>
+                            <Border x:Name="Label" Canvas.Left="21" Canvas.Top="4" Visibility="Collapsed"
+                                    Background="{StaticResource HudBackdropBrush}"
+                                    BorderBrush="{StaticResource AccentAmberBrush}" BorderThickness="1"
+                                    CornerRadius="2" Padding="6,2">
+                                <TextBlock Text="{TemplateBinding Content}"
+                                           FontFamily="{StaticResource MonoFont}" FontSize="9.5"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource AccentAmberBrush}" />
+                            </Border>
+                        </Canvas>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Label" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Halo" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <!-- The open marker keeps its label, so the panel and the point it belongs
+                             to stay tied together once the pointer has moved into the panel. -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Label" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Halo" Property="Opacity" Value="1" />
+                            <Setter TargetName="Dot" Property="Fill" Value="{StaticResource LineCyanBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="PanelCloseButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" Background="Transparent" Width="24" Height="22" CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource AccentAmberDimBrush}" />
+                            <Setter Property="Foreground" Value="{StaticResource AccentAmberBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
