@@ -582,7 +582,14 @@ public static class VoxelShipGrower
             GrowDorsalSpine(grid, p, primary, lengthVoxels, maxHalfHeight);
 
         if (p.WingStyle != WingStyle.None)
-            GrowWings(grid, p, hulls, layout, lengthVoxels, maxHalfHeight);
+        {
+            var wingTips = GrowWings(grid, p, hulls, layout, lengthVoxels, maxHalfHeight);
+
+            // Before the surface detail, so the barrels get panelled and greebled like the rest of
+            // the ship rather than staying conspicuously smooth.
+            if (p.WingtipCannons)
+                GrowWingtipCannons(grid, p, wingTips, lengthVoxels);
+        }
 
         if (p.Nacelles)
             GrowNacelles(grid, p, hulls, layout, lengthVoxels, maxHalfHeight);
@@ -1322,10 +1329,33 @@ public static class VoxelShipGrower
 
     // ---- Structures ---------------------------------------------------------------------
 
-    /// <summary>Wings with a real airfoil-ish section: thickness falls off toward the tip *and*
-    /// toward the leading/trailing edges, so the profile is a chamfered blade rather than a slab.</summary>
-    private static void GrowWings(VoxelGrid grid, ShipParameters p, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
+    /// <summary>
+    /// Wings with a real airfoil-ish section: thickness falls off toward the tip *and* toward the
+    /// leading/trailing edges, so the profile is a chamfered blade rather than a slab.
+    ///
+    /// Reports the outermost voxel each arm actually reached, starboard side only -- one point for
+    /// a spreading wing or a fin, two for a cross, whose arms splay above and below the axis. This
+    /// is the pass recording what it built, which is exactly the pattern <see cref="ShipAnchors"/>
+    /// refuses; the difference is that a wingtip gun is meaningless without a wing to hang it on,
+    /// whereas an anchor has to survive its own feature being switched off.
+    ///
+    /// Reported rather than recomputed because the arms stop for reasons the nominal span does not
+    /// know about: a swept station running off the end of the ship, or a fin column with no hull
+    /// under it. A gun placed at the nominal tip would hang in space and the fragment sweep would
+    /// then delete it.
+    /// </summary>
+    private static List<(int X, int Y, int Z)> GrowWings(VoxelGrid grid, ShipParameters p, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
     {
+        // Keyed by arm -- 0 for a plain wing or fin, ±1 for the cross's upper and lower pair -- so
+        // the outermost point of each is kept rather than whichever was written last.
+        var reached = new Dictionary<int, (int Offset, int X, int Y, int Z)>();
+
+        void Reach(int arm, int offset, int x, int y, int z)
+        {
+            if (!reached.TryGetValue(arm, out var best) || offset > best.Offset)
+                reached[arm] = (offset, x, y, z);
+        }
+
         var env = hulls[0].Envelope;
         var span = Math.Max(2, (int)MathF.Round(p.WingSpan / VoxelSize));
 
@@ -1386,8 +1416,13 @@ public static class VoxelShipGrower
                     var surface = TopFilledY(grid, finX, z);
                     if (surface is null) continue;
 
+                    var finTop = surface.Value + thickness * 2 + 2;
                     for (var dy = 1; dy <= thickness * 2 + 2; dy++)
                         grid.SetMirrored(finX, surface.Value + dy, z, VoxelMaterial.Hull);
+
+                    // Only the chord's centre slice is a candidate tip: the leading and trailing
+                    // edges are thinner, and a gun seated on one of them would be half in the air.
+                    if (dz == 0) Reach(0, offset, finX, finTop, z);
                     continue;
                 }
 
@@ -1401,13 +1436,109 @@ public static class VoxelShipGrower
                     var armThickness = Math.Max(1, thickness / 2);
 
                     foreach (var sign in new[] { 1, -1 })
+                    {
                         for (var y = -armThickness; y <= armThickness; y++)
                             grid.SetMirrored(x, env.CentreY + sign * rise + y, z, VoxelMaterial.Hull);
+
+                        if (dz == 0) Reach(sign, offset, x, env.CentreY + sign * rise, z);
+                    }
                     continue;
                 }
 
                 for (var y = -thickness; y <= thickness; y++)
                     grid.SetMirrored(x, env.CentreY + y, z, VoxelMaterial.Hull);
+
+                if (dz == 0) Reach(0, offset, x, env.CentreY, z);
+            }
+        }
+
+        return reached.Values.Select(r => (r.X, r.Y, r.Z)).ToList();
+    }
+
+    /// <summary>
+    /// A gun barrel on each wingtip, running fore-and-aft with a lit muzzle. Four of them on a
+    /// cross, two on a spreading wing or a pair of fins, mirrored to port by the grid.
+    ///
+    /// Seated on the tip voxel the wing pass reported rather than on a computed one, and deliberately
+    /// overlapping it: the barrel is centred *on* solid wing, so it is joined to the ship by
+    /// construction rather than by arithmetic that happens to come out right. Everything in this
+    /// file that guessed where a surface was has ended up floating at least once, and the fragment
+    /// sweep would then delete the guns outright rather than leave them visibly wrong.
+    /// </summary>
+    private static void GrowWingtipCannons(
+        VoxelGrid grid, ShipParameters p, IReadOnlyList<(int X, int Y, int Z)> tips, int len)
+    {
+        var detail = DetailUnit(len);
+        var scale = Math.Max(0.1f, p.CannonSize);
+
+        var radius = Math.Max(1, (int)MathF.Round(detail * 1.15f * scale));
+        var barrel = Math.Max(5, (int)MathF.Round(len * 0.13f * scale));
+
+        // Mostly ahead of the wing, with a short stub behind it. The stub is what makes the gun read
+        // as mounted through the tip rather than glued to its leading edge, and it doubles the
+        // contact with the wing.
+        var aft = Math.Max(2, barrel / 4);
+
+        // Every barrel on the ship, port side included, so a gun can be measured against its own
+        // mirror image as well as against the other arms.
+        var all = tips.Select(t => (t.X, t.Y, t.Z))
+            .Concat(tips.Select(t => (X: -t.X, t.Y, t.Z)))
+            .ToList();
+
+        for (var i = 0; i < tips.Count; i++)
+        {
+            var (tx, ty, tz) = tips[i];
+
+            // Bore capped at half the distance to the nearest other barrel. Without it a large
+            // calibre on a small hull simply runs the guns into each other -- the cross's upper and
+            // lower arms first, then port into starboard across the centreline -- and four guns
+            // become one lump. That is not a bigger weapon, it is a modelling failure, and the
+            // slider would be doing the opposite of what it says past a certain point.
+            var nearest = double.MaxValue;
+            for (var j = 0; j < all.Count; j++)
+            {
+                if (j == i) continue;
+                double dx = all[j].X - tx, dy = all[j].Y - ty, dz0 = all[j].Z - tz;
+                var d = Math.Sqrt(dx * dx + dy * dy + dz0 * dz0);
+                if (d > 0 && d < nearest) nearest = d;
+            }
+
+            // Half the gap, less one voxel of clearance, and never below one -- a bore of zero is
+            // not a thinner gun, it is no gun, and the toggle would silently do nothing.
+            var bore = nearest == double.MaxValue
+                ? int.MaxValue
+                : Math.Max(1, (int)(nearest / 2) - 1);
+
+            for (var dz = -barrel; dz <= aft; dz++)
+            {
+                var z = tz + dz;
+                if (z < 0 || z >= len) continue;
+
+                // Slightly fatter at the breech than at the muzzle, and fattest of all over the
+                // collar where it grips the wing.
+                var t = (dz + barrel) / (float)(barrel + aft);
+                var r = Math.Max(1, (int)MathF.Round(radius * (0.75f + t * 0.35f)));
+                var collar = dz > -radius && dz < aft;
+                if (collar) r += 1;
+
+                // The ceiling is applied to the *finished* radius, not to the nominal calibre it is
+                // derived from. Capping the calibre first and then letting the taper multiply it by
+                // 1.1 and the collar add another voxel puts the widest part back over the limit --
+                // which is precisely where two barrels met and fused into one lump.
+                r = Math.Min(r, bore);
+
+                // Muzzle depth follows the bore, so a capped gun still gets a lit tip rather than a
+                // glowing stub as long as the barrel is.
+                var material = dz <= -barrel + Math.Max(1, r)
+                    ? VoxelMaterial.Glow
+                    : collar ? VoxelMaterial.HullDark : VoxelMaterial.Hull;
+
+                for (var dx = -r; dx <= r; dx++)
+                    for (var dy = -r; dy <= r; dy++)
+                    {
+                        if (dx * dx + dy * dy > r * r + r) continue;
+                        grid.SetMirrored(tx + dx, ty + dy, z, material);
+                    }
             }
         }
     }

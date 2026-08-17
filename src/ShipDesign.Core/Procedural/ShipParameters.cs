@@ -97,6 +97,15 @@ public sealed class ShipParameters
     public float WingSpan { get; set; } = 6f;
     public float WingSweepDegrees { get; set; } = 30f;
 
+    /// <summary>Gun barrels on the wingtips. On a cross planform that means four of them, which is
+    /// most of what makes a snubfighter read as armed rather than as a shuttle.</summary>
+    public bool WingtipCannons { get; set; }
+
+    /// <summary>Scales barrel length and calibre together. One knob rather than two: they are not
+    /// independent on a real gun, and a long thin barrel next to a short fat one reads as an
+    /// error rather than as a choice.</summary>
+    public float CannonSize { get; set; } = 1f;
+
     public int EngineCount { get; set; } = 2;
     public EngineStyle EngineStyle { get; set; } = EngineStyle.Standard;
 

@@ -132,6 +132,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public WingStyle WingStyle { get => _parameters.WingStyle; set { _parameters.WingStyle = value; OnPropertyChanged(); Rebuild(); } }
     public float WingSpan { get => _parameters.WingSpan; set { _parameters.WingSpan = value; OnPropertyChanged(); Rebuild(); } }
     public float WingSweepDegrees { get => _parameters.WingSweepDegrees; set { _parameters.WingSweepDegrees = value; OnPropertyChanged(); Rebuild(); } }
+    public bool WingtipCannons { get => _parameters.WingtipCannons; set { _parameters.WingtipCannons = value; OnPropertyChanged(); Rebuild(); } }
+    public float CannonSize { get => _parameters.CannonSize; set { _parameters.CannonSize = value; OnPropertyChanged(); Rebuild(); } }
 
     public int EngineCount { get => _parameters.EngineCount; set { _parameters.EngineCount = value; OnPropertyChanged(); Rebuild(); } }
     public EngineStyle EngineStyle { get => _parameters.EngineStyle; set { _parameters.EngineStyle = value; OnPropertyChanged(); Rebuild(); } }
@@ -281,6 +283,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _parameters.WingStyle = WingStyles[_random.Next(WingStyles.Count)];
         _parameters.WingSpan = 2f + (float)_random.NextDouble() * 10f;
         _parameters.WingSweepDegrees = _random.Next(61);
+        _parameters.WingtipCannons = _random.NextDouble() < 0.35;
+        _parameters.CannonSize = 0.5f + (float)_random.NextDouble() * 1.5f;
         _parameters.EngineCount = 1 + _random.Next(4);
         _parameters.EngineStyle = EngineStyles[_random.Next(EngineStyles.Count)];
         _parameters.CockpitStyle = CockpitStyles[_random.Next(CockpitStyles.Count)];

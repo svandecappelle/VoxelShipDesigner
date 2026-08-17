@@ -120,7 +120,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
             }),
 
         Of("Chasseur X",
-            "Fuselage court, quatre ailerons en croix, tuyères en bout d'aile",
+            "Fuselage court, quatre ailerons en croix, canons en bout d'aile",
             p =>
             {
                 p.HullClass = HullClass.Fighter;
@@ -137,6 +137,8 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.WingStyle = WingStyle.Cross;
                 p.WingSpan = 6f;
                 p.WingSweepDegrees = 8f;
+                p.WingtipCannons = true;
+                p.CannonSize = 1f;
 
                 p.EngineCount = 4;
                 p.EngineStyle = EngineStyle.Standard;

@@ -178,7 +178,19 @@
                 <TextBlock Text="Angle de flèche" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                 <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WingSweepDegrees, StringFormat='{}{0:0}°'}" />
             </Grid>
-            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-30" Maximum="85" Value="{Binding WingSweepDegrees}" />
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="-30" Maximum="85" Value="{Binding WingSweepDegrees}" Margin="0,0,0,12" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding WingtipCannons}" Margin="0,0,8,0" />
+                <TextBlock Text="Canons en bout d'aile" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Grid Margin="0,0,0,4">
+                <TextBlock Text="Calibre des canons" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding CannonSize, StringFormat='{}{0:0.0}×'}" />
+            </Grid>
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="4" Value="{Binding CannonSize}"
+                    ToolTip="Longueur et calibre à la fois. Une aile en croix en porte quatre, une aile pleine ou une paire d'ailerons en portent deux." />
         </StackPanel>
     </DataTemplate>
 
