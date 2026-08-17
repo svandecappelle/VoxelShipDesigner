@@ -46,6 +46,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public IReadOnlyList<WingStyle> WingStyles { get; } = Enum.GetValues<WingStyle>();
     public IReadOnlyList<EngineStyle> EngineStyles { get; } = Enum.GetValues<EngineStyle>();
     public IReadOnlyList<CockpitStyle> CockpitStyles { get; } = Enum.GetValues<CockpitStyle>();
+    public IReadOnlyList<HullArrangement> HullArrangements { get; } = Enum.GetValues<HullArrangement>();
+    public IReadOnlyList<NacelleMount> NacelleMounts { get; } = Enum.GetValues<NacelleMount>();
+    public IReadOnlyList<NacelleStyle> NacelleStyles { get; } = Enum.GetValues<NacelleStyle>();
 
     /// <summary>Swatches taken from the reference voxel-ship art style: a cool greyscale ramp for
     /// hull and plating, deep blue for markings, warm amber/gold for lit ports, and cyan for
@@ -64,6 +67,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public HullShape HullShape { get => _parameters.HullShape; set { _parameters.HullShape = value; OnPropertyChanged(); Rebuild(); } }
     public HullShape SecondaryHullShape { get => _parameters.SecondaryHullShape; set { _parameters.SecondaryHullShape = value; OnPropertyChanged(); Rebuild(); } }
 
+    public HullArrangement HullArrangement
+    {
+        get => _parameters.HullArrangement;
+        set
+        {
+            _parameters.HullArrangement = value;
+            OnPropertyChanged();
+            // Half the hull panel applies to one arrangement and half to the other, so every
+            // visibility flag has to be re-evaluated when it changes.
+            OnPropertyChanged(nameof(HasSecondaryHulls));
+            OnPropertyChanged(nameof(IsComposite));
+            OnPropertyChanged(nameof(IsParallel));
+            Rebuild();
+        }
+    }
+
+    public bool IsComposite => _parameters.HullArrangement == HullArrangement.Composite;
+    public bool IsParallel => _parameters.HullArrangement == HullArrangement.Parallel;
+
     public int HullCount
     {
         get => _parameters.HullCount;
@@ -78,9 +100,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Whether the ship has distinct outboard hulls whose shape can differ from the main
-    /// one. A catamaran is two copies of the primary hull, so only a trimaran qualifies.</summary>
-    public bool HasSecondaryHulls => _parameters.HullCount >= 3;
+    /// <summary>Whether the ship has a second hull whose shape can differ from the main one. A
+    /// catamaran is two copies of the primary hull, so only a trimaran qualifies -- but a composite
+    /// ship always has one, since its engineering hull is a distinct volume.</summary>
+    public bool HasSecondaryHulls => IsComposite || _parameters.HullCount >= 3;
+
+    public float PrimaryHullFraction { get => _parameters.PrimaryHullFraction; set { _parameters.PrimaryHullFraction = value; OnPropertyChanged(); Rebuild(); } }
+    public float SecondaryHullDrop { get => _parameters.SecondaryHullDrop; set { _parameters.SecondaryHullDrop = value; OnPropertyChanged(); Rebuild(); } }
     public float HullSpacing { get => _parameters.HullSpacing; set { _parameters.HullSpacing = value; OnPropertyChanged(); Rebuild(); } }
     public float Length { get => _parameters.Length; set { _parameters.Length = value; OnPropertyChanged(); Rebuild(); } }
     public float Beam { get => _parameters.Beam; set { _parameters.Beam = value; OnPropertyChanged(); Rebuild(); } }
@@ -105,6 +131,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public float SuperstructureSize { get => _parameters.SuperstructureSize; set { _parameters.SuperstructureSize = value; OnPropertyChanged(); Rebuild(); } }
 
     public bool Nacelles { get => _parameters.Nacelles; set { _parameters.Nacelles = value; OnPropertyChanged(); Rebuild(); } }
+    public NacelleMount NacelleMount { get => _parameters.NacelleMount; set { _parameters.NacelleMount = value; OnPropertyChanged(); Rebuild(); } }
+    public NacelleStyle NacelleStyle { get => _parameters.NacelleStyle; set { _parameters.NacelleStyle = value; OnPropertyChanged(); Rebuild(); } }
+    public float PylonChord { get => _parameters.PylonChord; set { _parameters.PylonChord = value; OnPropertyChanged(); Rebuild(); } }
+    public bool Deflector { get => _parameters.Deflector; set { _parameters.Deflector = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleWidth { get => _parameters.NacelleWidth; set { _parameters.NacelleWidth = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleLength { get => _parameters.NacelleLength; set { _parameters.NacelleLength = value; OnPropertyChanged(); Rebuild(); } }
     public float NacelleSpacing { get => _parameters.NacelleSpacing; set { _parameters.NacelleSpacing = value; OnPropertyChanged(); Rebuild(); } }

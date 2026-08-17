@@ -37,6 +37,16 @@ public sealed class EnumLabelConverter : IValueConverter
         [HullShape.Saucer] = "Soucoupe",
         [HullShape.Ring] = "Anneau",
         [HullShape.Fork] = "Fourche",
+
+        [HullArrangement.Parallel] = "Parallèles",
+        [HullArrangement.Composite] = "Soucoupe + ingénierie",
+
+        [NacelleMount.Widest] = "Auto",
+        [NacelleMount.Primary] = "Coque avant",
+        [NacelleMount.Secondary] = "Coque arrière",
+
+        [NacelleStyle.Thruster] = "Propulseur",
+        [NacelleStyle.Warp] = "Warp",
     };
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>

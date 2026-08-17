@@ -6,6 +6,19 @@ public sealed class ShipParameters
 {
     public HullClass HullClass { get; set; } = HullClass.Fighter;
 
+    /// <summary>Whether the hulls sit side by side or stack fore-and-aft with a neck between them.
+    /// <see cref="HullCount"/> and <see cref="HullSpacing"/> only apply to the parallel
+    /// arrangement.</summary>
+    public HullArrangement HullArrangement { get; set; } = HullArrangement.Parallel;
+
+    /// <summary>Share of the ship's length the forward hull takes on a composite ship. Around 0.45
+    /// is the Starfleet proportion; lower makes a small saucer on a long engineering hull.</summary>
+    public float PrimaryHullFraction { get; set; } = 0.45f;
+
+    /// <summary>How far the aft hull hangs below the forward one, as a multiple of the forward
+    /// hull's half-height. Larger values mean a longer, more visible neck.</summary>
+    public float SecondaryHullDrop { get; set; } = 1.6f;
+
     /// <summary>Number of parallel hulls: 1 is a conventional single hull, 2 a catamaran (two
     /// full-size hulls either side of the centreline), 3 a trimaran (a full-size centre hull with
     /// a smaller outrigger each side). Multi-hull ships are joined by lateral spars.</summary>
@@ -47,6 +60,20 @@ public sealed class ShipParameters
     public float SuperstructureSize { get; set; } = 1f;
 
     public bool Nacelles { get; set; } = true;
+
+    /// <summary>Which hull the pylons spring from.</summary>
+    public NacelleMount NacelleMount { get; set; } = NacelleMount.Widest;
+
+    /// <summary>Whether the pods read as thrusters or as warp nacelles.</summary>
+    public NacelleStyle NacelleStyle { get; set; } = NacelleStyle.Thruster;
+
+    /// <summary>Fore-and-aft depth of the pylon, as a multiple of its default thickness. Low values
+    /// give a thin strut, high values the broad swept blade Starfleet pylons are.</summary>
+    public float PylonChord { get; set; } = 1f;
+
+    /// <summary>A large emissive dish set into the bow of the aft hull. Only meaningful on a
+    /// composite ship, which is the only arrangement that has an aft hull with a bow.</summary>
+    public bool Deflector { get; set; } = true;
 
     /// <summary>Pod cross-section scale. Split from <see cref="NacelleLength"/> so a pod can be
     /// stubby-and-fat or long-and-slim, which is a big part of what distinguishes an engine pod

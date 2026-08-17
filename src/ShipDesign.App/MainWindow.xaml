@@ -104,22 +104,56 @@
                                     </ListBox.ItemTemplate>
                                 </ListBox>
 
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Nombre de coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullCount}" />
-                                </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="3" Value="{Binding HullCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+                                <TextBlock Text="Disposition des coques" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullArrangements}"
+                                         SelectedItem="{Binding HullArrangement}" Margin="0,0,0,10">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" TextWrapping="Wrap"
+                                                       TextAlignment="Center" FontSize="9.5" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
 
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Écartement des coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullSpacing, StringFormat='{}{0:0.0}×'}" />
-                                </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="6" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
+                                <!-- Side-by-side hulls only: a composite ship has exactly two, stacked. -->
+                                <StackPanel Visibility="{Binding IsParallel, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Nombre de coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullCount}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="3" Value="{Binding HullCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
 
-                                <!-- Only a trimaran has hulls distinct from the main one: a catamaran
-                                     is two copies of it, so a second shape picker would do nothing. -->
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Écartement des coques" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding HullSpacing, StringFormat='{}{0:0.0}×'}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.1" Maximum="6" Value="{Binding HullSpacing}" Margin="0,0,0,10" />
+                                </StackPanel>
+
+                                <!-- Stacked hulls only. -->
+                                <StackPanel Visibility="{Binding IsComposite, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Part de la coque avant" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding PrimaryHullFraction, StringFormat='{}{0:P0}'}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="0.8" Value="{Binding PrimaryHullFraction}" Margin="0,0,0,10"
+                                            ToolTip="Longueur de la soucoupe rapportée au vaisseau entier. Autour de 45% donne la proportion Starfleet." />
+
+                                    <Grid Margin="0,0,0,4">
+                                        <TextBlock Text="Longueur du col" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                        <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding SecondaryHullDrop, StringFormat='{}{0:0.0}×'}" />
+                                    </Grid>
+                                    <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="4" Value="{Binding SecondaryHullDrop}" Margin="0,0,0,10"
+                                            ToolTip="À quelle distance la coque d'ingénierie est suspendue sous la soucoupe." />
+
+                                    <CheckBox Content="Déflecteur" IsChecked="{Binding Deflector}" Margin="0,0,0,10"
+                                              ToolTip="Le grand disque émissif encastré dans la proue de la coque d'ingénierie." />
+                                </StackPanel>
+
+                                <!-- A catamaran is two copies of the main hull, so it has no second
+                                     shape to pick; a trimaran and a composite ship both do. -->
                                 <StackPanel Visibility="{Binding HasSecondaryHulls, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <TextBlock Text="Forme des flotteurs" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                    <TextBlock Text="Forme de la coque secondaire" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
                                     <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullShapes}"
                                              SelectedItem="{Binding SecondaryHullShape}" Margin="0,0,0,10">
                                         <ListBox.ItemTemplate>
@@ -246,6 +280,29 @@
                                     <TextBlock Text="Nacelles sur pylônes" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
                                 </StackPanel>
 
+                                <TextBlock Text="Ancrage" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding NacelleMounts}"
+                                         SelectedItem="{Binding NacelleMount}" Margin="0,0,0,10"
+                                         ToolTip="Sur quelle coque partent les pylônes. Sur un vaisseau à soucoupe, « coque arrière » est la disposition Starfleet.">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" TextWrapping="Wrap"
+                                                       TextAlignment="Center" FontSize="9.5" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <TextBlock Text="Éclairage" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
+                                <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding NacelleStyles}"
+                                         SelectedItem="{Binding NacelleStyle}" Margin="0,0,0,12"
+                                         ToolTip="« Warp » remplace la tuyère arrière par un collecteur lumineux à l'avant et une grille éclairée sur les flancs.">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumLabelConverter}}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Largeur nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleWidth, StringFormat='{}{0:0.0}×'}" />
@@ -274,7 +331,14 @@
                                     <TextBlock Text="Recul nacelles" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding NacelleSweep, StringFormat='{}{0:0%}'}" />
                                 </Grid>
-                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.95" Value="{Binding NacelleSweep}" />
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="0.95" Value="{Binding NacelleSweep}" Margin="0,0,0,12" />
+
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Corde des pylônes" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding PylonChord, StringFormat='{}{0:0.0}×'}" />
+                                </Grid>
+                                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="6" Value="{Binding PylonChord}"
+                                        ToolTip="Profondeur du pylône d'avant en arrière : au-delà de 2 il devient une lame large plutôt qu'une entretoise." />
                             </StackPanel>
                         </Expander>
 

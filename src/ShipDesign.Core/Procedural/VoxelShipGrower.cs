@@ -66,11 +66,30 @@ public static class VoxelShipGrower
             ? Math.Max(halfWidth, length / 2)
             : halfWidth;
 
+        // A composite ship stacks its hulls vertically, so it is the *height* of the box that grows
+        // rather than its footprint -- and its forward hull only spans part of the length, so a
+        // saucer on one is much smaller than a saucer filling the whole ship.
+        if (p.HullArrangement == HullArrangement.Composite)
+        {
+            var fraction = Math.Clamp(p.PrimaryHullFraction, 0.2f, 0.8f);
+            var primaryLength = Math.Max(12, (int)MathF.Round(length * fraction));
+
+            var primaryHalfWidth = HullShapeProfile.IsDisc(p.HullShape)
+                ? Math.Max(halfWidth, primaryLength / 2)
+                : halfWidth;
+
+            var stackedHeight = 2L * halfHeight
+                + Math.Max(1, (int)MathF.Round(halfWidth * Math.Clamp(p.SecondaryHullDrop, 0.2f, 4f)))
+                + 2L * halfHeight;
+
+            return length * (2L * Math.Max(primaryHalfWidth, halfWidth)) * stackedHeight;
+        }
+
         // Outriggers are smaller than the primary and sit beside it, so a trimaran is nearer twice
         // the volume than three times it.
-        var hulls = Math.Clamp(p.HullCount, 1, 3) switch { 1 => 1.0, 2 => 2.0, _ => 2.3 };
+        var parallel = Math.Clamp(p.HullCount, 1, 3) switch { 1 => 1.0, 2 => 2.0, _ => 2.3 };
 
-        return (long)(length * (2L * planHalfWidth) * (2L * halfHeight) * hulls);
+        return (long)(length * (2L * planHalfWidth) * (2L * halfHeight) * parallel);
     }
 
     private sealed class Envelope
@@ -84,6 +103,34 @@ public static class VoxelShipGrower
         /// or a split bow no matter what the outline says.</summary>
         public required int[] InnerHalfWidth { get; init; }
 
+        /// <summary>
+        /// Height of this hull's own mid-line. Zero for a hull sitting on the ship's axis; negative
+        /// for one slung below it, which is how a Starfleet engineering hull hangs under the saucer.
+        ///
+        /// Kept beside <see cref="Top"/> rather than added into it because the section chamfers by
+        /// *scaling* the height: fold the offset into Top and the flanks would taper toward y=0
+        /// instead of toward the hull's own centre, and a dropped hull would come out sheared.
+        /// </summary>
+        public int CentreY { get; init; }
+
+        /// <summary>Deck and keel heights in ship coordinates. Everything that seats a structure on
+        /// a hull wants these rather than <see cref="Top"/>, which is measured from the hull's own
+        /// mid-line and means nothing on its own once hulls can sit at different heights.</summary>
+        public int DeckY(int z) => CentreY + Top[z];
+
+        public int KeelY(int z) => CentreY - Bottom[z];
+
+        /// <summary>A height part-way up the hull's side, for stripes and port rows.</summary>
+        public int DeckFractionY(int z, float fraction) => CentreY + (int)MathF.Round(Top[z] * fraction);
+
+        /// <summary>Raises the deck to an absolute height, for passes that build upward and then
+        /// have to tell the surface passes where the new surface is.</summary>
+        public void RaiseDeckTo(int z, int deckY)
+        {
+            var relative = deckY - CentreY;
+            if (relative > Top[z]) Top[z] = relative;
+        }
+
         /// <summary>X offset (from the hull centreline) of material that actually exists at this
         /// slice. Structures are seated here rather than at the centreline, which on a hollow hull
         /// is empty space -- a bridge tower placed at x=0 on a ring would hang in the hole.</summary>
@@ -91,6 +138,62 @@ public static class VoxelShipGrower
         {
             var inner = InnerHalfWidth[z];
             return inner == 0 ? 0 : (inner + HalfWidth[z]) / 2;
+        }
+
+        /// <summary>First and last slice this hull actually occupies. A hull no longer necessarily
+        /// runs the whole length of the ship -- a saucer stops well short of the stern -- so passes
+        /// that want "the bow" or "the tail" have to ask the hull, not the ship.</summary>
+        public int FirstZ
+        {
+            get
+            {
+                for (var z = 0; z < HalfWidth.Length; z++)
+                    if (HalfWidth[z] > 0) return z;
+                return 0;
+            }
+        }
+
+        public int LastZ
+        {
+            get
+            {
+                for (var z = HalfWidth.Length - 1; z >= 0; z--)
+                    if (HalfWidth[z] > 0) return z;
+                return HalfWidth.Length - 1;
+            }
+        }
+
+        /// <summary>
+        /// This envelope moved to a new position along the ship and a new height, padded with empty
+        /// slices either side. Padding rather than shortening the arrays keeps every pass indexing
+        /// by ship-wide z, which is what makes a hull that occupies part of the ship a small change
+        /// rather than a rewrite of everything that reads an envelope.
+        /// </summary>
+        public Envelope PlacedAt(int totalLength, int zOffset, int centreY)
+        {
+            var halfWidth = new int[totalLength];
+            var top = new int[totalLength];
+            var bottom = new int[totalLength];
+            var inner = new int[totalLength];
+
+            for (var z = 0; z < HalfWidth.Length; z++)
+            {
+                var target = z + zOffset;
+                if (target < 0 || target >= totalLength) continue;
+                halfWidth[target] = HalfWidth[z];
+                top[target] = Top[z];
+                bottom[target] = Bottom[z];
+                inner[target] = InnerHalfWidth[z];
+            }
+
+            return new Envelope
+            {
+                HalfWidth = halfWidth,
+                Top = top,
+                Bottom = bottom,
+                InnerHalfWidth = inner,
+                CentreY = centreY,
+            };
         }
     }
 
@@ -116,6 +219,9 @@ public static class VoxelShipGrower
     private static IReadOnlyList<HullColumn> HullLayout(
         Random rng, ShipParameters p, HullClassPreset preset, int len, int maxHalfWidth, int maxHalfHeight)
     {
+        if (p.HullArrangement == HullArrangement.Composite)
+            return CompositeLayout(rng, p, preset, len, maxHalfWidth, maxHalfHeight);
+
         var count = Math.Clamp(p.HullCount, 1, 3);
         var primary = GrowEnvelope(rng, p, preset, p.HullShape, len, maxHalfWidth, maxHalfHeight);
 
@@ -140,6 +246,157 @@ public static class VoxelShipGrower
             new HullColumn(0, primary, p.HullShape),
             new HullColumn(primaryHalfWidth + gap + outrigger.HalfWidth.Max(), outrigger, p.SecondaryHullShape),
         };
+    }
+
+    /// <summary>
+    /// The Starfleet arrangement: a forward hull carried high, an aft hull slung below it, and the
+    /// two overlapping along the middle of the ship so a neck has somewhere to land.
+    ///
+    /// Both envelopes are grown at their own length and then placed into ship-wide arrays, which is
+    /// what lets a saucer be a saucer -- a disc sizes itself off the length it is given, so growing
+    /// one over the whole ship and hoping to use only its front half would produce a disc the size
+    /// of the entire vessel.
+    /// </summary>
+    private static IReadOnlyList<HullColumn> CompositeLayout(
+        Random rng, ShipParameters p, HullClassPreset preset, int len, int maxHalfWidth, int maxHalfHeight)
+    {
+        var fraction = Math.Clamp(p.PrimaryHullFraction, 0.2f, 0.8f);
+        var primaryLen = Math.Max(12, (int)MathF.Round(len * fraction));
+
+        // The aft hull starts under the forward one's rear third rather than behind it. Overlap is
+        // what makes the pair read as one ship: butt them end to end and the neck becomes a
+        // coupling between two vehicles.
+        var secondaryStart = (int)MathF.Round(primaryLen * 0.55f);
+        var secondaryLen = Math.Max(12, len - secondaryStart);
+
+        var primary = GrowEnvelope(rng, p, preset, p.HullShape, primaryLen, maxHalfWidth, maxHalfHeight);
+        var secondary = GrowEnvelope(rng, p, preset, p.SecondaryHullShape, secondaryLen, maxHalfWidth, maxHalfHeight, 0.82f);
+
+        // Measured off the forward hull's own depth so the neck stays proportional whatever the
+        // saucer turns out to be, and floored so the two hulls cannot merge into one blob.
+        var primaryDepth = Math.Max(1, primary.Bottom.Max());
+        var secondaryDepth = Math.Max(1, secondary.Top.Max());
+        var drop = -(primaryDepth + secondaryDepth
+                     + Math.Max(1, (int)MathF.Round(maxHalfHeight * Math.Clamp(p.SecondaryHullDrop, 0.2f, 4f))));
+
+        return new[]
+        {
+            new HullColumn(0, primary.PlacedAt(len, 0, 0), p.HullShape),
+            new HullColumn(0, secondary.PlacedAt(len, secondaryStart, drop), p.SecondaryHullShape),
+        };
+    }
+
+    /// <summary>
+    /// The dorsal neck: a deep, thin blade joining the forward hull's keel to the aft hull's deck
+    /// over the slices where the two overlap.
+    ///
+    /// Not decoration. Without it a composite ship is two solids that merely look assembled, and it
+    /// would export as two disconnected pieces -- the same reason the parallel arrangement needs its
+    /// spars. Built from the hulls' *real* sections rather than from their envelopes' mid-lines, so
+    /// it meets actual material at both ends instead of stopping in mid-air over a chamfer.
+    /// </summary>
+    private static void GrowNeck(VoxelGrid grid, ShipParameters p, HullColumn forward, HullColumn aft, int len)
+    {
+        var detail = DetailUnit(len);
+
+        // Where the two hulls overlap along the ship. The neck sits in the back half of that band,
+        // which is where it lands on the forward hull's trailing underside rather than on its belly.
+        var from = Math.Max(forward.Envelope.FirstZ, aft.Envelope.FirstZ);
+        var to = Math.Min(forward.Envelope.LastZ, aft.Envelope.LastZ);
+        if (to <= from) return;
+
+        var span = to - from;
+        var z0 = from + (int)MathF.Round(span * 0.42f);
+        var z1 = to - (int)MathF.Round(span * 0.12f);
+        if (z1 <= z0) { z0 = from; z1 = to; }
+
+        var halfThickness = Math.Max(1, (int)MathF.Round(detail * 1.6f));
+
+        for (var z = z0; z <= z1 && z < len; z++)
+        {
+            if (forward.Envelope.HalfWidth[z] < 1 || aft.Envelope.HalfWidth[z] < 1) continue;
+
+            for (var dx = -halfThickness; dx <= halfThickness; dx++)
+            {
+                if (!Section(forward.Envelope, z, dx, out _, out var forwardKeel)) continue;
+                if (!Section(aft.Envelope, z, dx, out var aftDeck, out _)) continue;
+
+                // Overlap the ends by a voxel each so the neck fuses with both hulls rather than
+                // merely touching them -- a shared face is not a shared voxel, and the flood fill
+                // that checks a ship is one piece walks voxels.
+                for (var y = aftDeck - 1; y <= forwardKeel + 1; y++)
+                    grid.SetMirrored(dx, y, z, VoxelMaterial.Hull);
+            }
+        }
+
+        _ = p;
+    }
+
+    /// <summary>
+    /// A large emissive dish set into the bow of the aft hull, ringed by a dark housing.
+    ///
+    /// Cheap and out of all proportion to its cost in how much it sells the silhouette: it is the
+    /// one feature that says "this is the front of the engineering hull" rather than "this is the
+    /// blunt end of a second fuselage". Set *into* the bow rather than stuck on it -- a dish
+    /// standing proud reads as a satellite antenna.
+    /// </summary>
+    private static void GrowDeflector(VoxelGrid grid, ShipParameters p, HullColumn aft, int len)
+    {
+        var env = aft.Envelope;
+
+        // Walk aft from the bow to the first slice broad enough to carry a dish worth seeing. Fixing
+        // the position at a set distance behind the tip does not work: how fast a bow opens out
+        // depends entirely on the planform, and on a slow taper that lands on a slice one voxel
+        // wide, where the dish silently comes out as nothing.
+        // Far enough aft that the hull has reached most of its section. Stopping at the first slice
+        // merely wide enough puts the dish where the bow is still shallow, and since a dish cannot
+        // be taller than the hull it sits on, that caps it at a few voxels however wide the hull
+        // eventually gets.
+        var wanted = Math.Max(3, (int)MathF.Round(env.HalfWidth.Max() * 0.8f));
+        var noseZ = -1;
+        for (var z = env.FirstZ; z <= env.LastZ; z++)
+            if (env.HalfWidth[z] >= wanted) { noseZ = z; break; }
+
+        if (noseZ < 0) return;
+
+        var halfWidth = env.HalfWidth[noseZ];
+        var halfHeight = Math.Max(1, (env.Top[noseZ] + env.Bottom[noseZ]) / 2);
+        var radius = Math.Max(3, (int)MathF.Round(MathF.Min(halfWidth, halfHeight) * 0.8f));
+        var centreY = env.CentreY + (env.Top[noseZ] - env.Bottom[noseZ]) / 2;
+
+        var depth = Math.Max(1, DetailUnit(len));
+        var rim = Math.Max(1, radius / 4);
+        var search = Math.Max(4, (int)MathF.Round(len * 0.06f));
+
+        for (var dx = -radius; dx <= radius; dx++)
+            for (var dy = -radius; dy <= radius; dy++)
+            {
+                var d2 = dx * dx + dy * dy;
+                if (d2 > radius * radius) continue;
+
+                var x = aft.XOffset + dx;
+                var y = centreY + dy;
+
+                // Walk aft until the bow surface is found at this column, rather than assuming the
+                // bow is a flat plane at noseZ. It is not: the section chamfers, so a fixed plane
+                // finds material only near the middle of the dish and the rest silently vanishes.
+                var frontZ = -1;
+                for (var z = Math.Max(0, noseZ - 2); z < Math.Min(len, noseZ + search); z++)
+                    if (grid.IsFilled(x, y, z)) { frontZ = z; break; }
+
+                if (frontZ < 0) continue;
+
+                // The outer annulus is the housing, the inner disc is the emitter.
+                var housing = d2 > (radius - rim) * (radius - rim);
+                for (var dz = 0; dz < depth; dz++)
+                {
+                    var z = frontZ + dz;
+                    if (z >= len || !grid.IsFilled(x, y, z)) break;
+                    grid.SetMirrored(x, y, z, housing ? VoxelMaterial.HullDark : VoxelMaterial.Glow);
+                }
+            }
+
+        _ = p;
     }
 
     /// <summary>
@@ -207,13 +464,22 @@ public static class VoxelShipGrower
         if (!HullShapeProfile.IsDisc(primary.Shape))
             AddDeckTerraces(grid, p, primary, lengthVoxels);
 
-        // Spars must go in before anything else reads the surface: without them the hulls are
-        // separate solids, and the ship would export as two or three unconnected pieces.
+        // Whatever joins the hulls must go in before anything else reads the surface: without it
+        // the hulls are separate solids, and the ship would export as unconnected pieces.
+        if (p.HullArrangement == HullArrangement.Composite)
+        {
+            GrowNeck(grid, p, primary, hulls[1], lengthVoxels);
+
+            if (p.Deflector)
+                GrowDeflector(grid, p, hulls[1], lengthVoxels);
+        }
         // The test is "is any hull off the centreline", not "is there more than one entry" -- a
         // catamaran is a single entry at +d whose mirror is the second hull, so counting entries
         // would skip the one layout that most needs joining.
-        if (hulls.Any(h => h.XOffset != 0))
+        else if (hulls.Any(h => h.XOffset != 0))
+        {
             GrowHullBridges(grid, hulls, lengthVoxels);
+        }
 
         if (p.WingStyle != WingStyle.None)
             GrowWings(grid, p, hulls, layout, lengthVoxels, maxHalfHeight);
@@ -317,6 +583,7 @@ public static class VoxelShipGrower
         Smooth(bottom);
 
         var halfWidth = Quantize(w);
+        CloseInteriorPinches(halfWidth);
 
         // The hollow core is derived from the *final* outer width, after smoothing and rounding,
         // so the two can never cross. Leaving at least MinRimVoxels of material also closes the
@@ -340,6 +607,33 @@ public static class VoxelShipGrower
             Bottom = Quantize(bottom),
             InnerHalfWidth = inner,
         };
+    }
+
+    /// <summary>
+    /// Keeps a hull in one piece by refusing to let its half-width reach zero anywhere between its
+    /// bow and its stern.
+    ///
+    /// The profile waves multiply the planform, and where a shape is already narrow a trough can
+    /// take the width to zero for a few slices. That does not read as a waist -- it severs the hull,
+    /// and the tip beyond the pinch becomes a separate solid that exports as a loose lump floating
+    /// ahead of the ship. Only interior zeros are filled: the runs of zero outside the hull are what
+    /// give a hull that occupies part of the ship its extent.
+    /// </summary>
+    private static void CloseInteriorPinches(int[] halfWidth)
+    {
+        var first = -1;
+        var last = -1;
+        for (var z = 0; z < halfWidth.Length; z++)
+        {
+            if (halfWidth[z] <= 0) continue;
+            if (first < 0) first = z;
+            last = z;
+        }
+
+        if (first < 0) return;
+
+        for (var z = first; z <= last; z++)
+            if (halfWidth[z] < 1) halfWidth[z] = 1;
     }
 
     private static float Noise(Random rng, float amplitude) => ((float)rng.NextDouble() - 0.5f) * 2f * amplitude;
@@ -381,7 +675,7 @@ public static class VoxelShipGrower
                 {
                     if (!Section(env, z, dx, out var yTop, out var yBottom)) continue;
 
-                    for (var y = -yBottom; y <= yTop; y++)
+                    for (var y = yBottom; y <= yTop; y++)
                         grid.SetMirrored(hull.XOffset + dx, y, z, VoxelMaterial.Hull);
                 }
             }
@@ -395,6 +689,12 @@ public static class VoxelShipGrower
     /// grid for it -- the largest hulls have thousands of columns, and the scan showed up in the
     /// build time as soon as discs made those hulls tall.
     /// </summary>
+    /// <summary>
+    /// Bare-hull section at one column, in ship coordinates: <paramref name="yTop"/> and
+    /// <paramref name="yBottom"/> are the actual deck and keel heights, not magnitudes either side
+    /// of zero. Absolute because a hull can sit off the ship's axis, and a chamfer measured from
+    /// zero on a hull whose centre is elsewhere is not a chamfer.
+    /// </summary>
     private static bool Section(Envelope env, int z, int dx, out int yTop, out int yBottom)
     {
         yTop = 0;
@@ -403,7 +703,7 @@ public static class VoxelShipGrower
         var hw = env.HalfWidth[z];
         var inner = env.InnerHalfWidth[z];
         var offset = Math.Abs(dx);
-        if (hw < 0 || offset > hw) return false;
+        if (hw < 1 || offset > hw) return false;
         if (inner > 0 && offset < inner) return false;
 
         // On a hollow slice the section tapers toward *both* rims, not just the outer one, so the
@@ -413,8 +713,8 @@ public static class VoxelShipGrower
             ? MathF.Max(fromOuter, Shoulder(hw - offset + inner, hw))
             : fromOuter;
 
-        yTop = (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
-        yBottom = (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
+        yTop = env.CentreY + (int)MathF.Round(env.Top[z] * (1f - shoulder * 0.62f));
+        yBottom = env.CentreY - (int)MathF.Round(env.Bottom[z] * (1f - shoulder * 0.55f));
         return true;
     }
 
@@ -485,7 +785,9 @@ public static class VoxelShipGrower
         var radius = env.HalfWidth.Max();
         if (radius < 8) return;
 
-        var centreZ = len / 2;
+        // The disc's own middle, not the ship's. A saucer that occupies only the forward half of a
+        // composite hull would otherwise have its terraces centred somewhere out behind it.
+        var centreZ = (env.FirstZ + env.LastZ) / 2;
         var crown = Math.Max(1, env.Top.Max());
 
         // Concentric decks. One more tier than an elongated hull gets, because on a disc the
@@ -505,7 +807,9 @@ public static class VoxelShipGrower
         // Collected separately and applied at the end. Section() derives the bare-hull surface
         // from Top[], so raising Top[] inside the loop would feed each column a surface that the
         // previous column had already lifted, and the deck would climb away runaway-style.
+        // Absolute heights, matching what Section now returns.
         var raisedTop = new int[len];
+        for (var z = 0; z < len; z++) raisedTop[z] = int.MinValue;
 
         for (var z = 0; z < len; z++)
         {
@@ -557,7 +861,7 @@ public static class VoxelShipGrower
         // Top[] has to follow the new deck, or the surface-detail passes -- which treat anything
         // above Top[] as a mounted structure -- would refuse to decorate the disc at all.
         for (var z = 0; z < len; z++)
-            if (raisedTop[z] > env.Top[z]) env.Top[z] = raisedTop[z];
+            if (raisedTop[z] != int.MinValue) env.RaiseDeckTo(z, raisedTop[z]);
     }
 
     private static void AddDeckTerraces(VoxelGrid grid, ShipParameters p, HullColumn primary, int len)
@@ -600,7 +904,7 @@ public static class VoxelShipGrower
                     var surface = TopFilledY(grid, x, z);
                     if (surface is null) continue;
 
-                    for (var y = surface.Value + 1; y <= env.Top[z] + slabTop; y++)
+                    for (var y = surface.Value + 1; y <= env.DeckY(z) + slabTop; y++)
                         grid.SetMirrored(x, y, z, VoxelMaterial.Hull);
                 }
 
@@ -663,53 +967,102 @@ public static class VoxelShipGrower
                     // Fins stand vertically off the hull instead of spreading horizontally.
                     var finX = Math.Max(1, rootHalfWidth - 1) + offset / 3;
                     for (var dy = 0; dy <= thickness * 2 + 1; dy++)
-                        grid.SetMirrored(finX, env.Top[z] + dy, z, VoxelMaterial.Hull);
+                        grid.SetMirrored(finX, env.DeckY(z) + dy, z, VoxelMaterial.Hull);
                     continue;
                 }
 
                 for (var y = -thickness; y <= thickness; y++)
-                    grid.SetMirrored(x, y, z, VoxelMaterial.Hull);
+                    grid.SetMirrored(x, env.CentreY + y, z, VoxelMaterial.Hull);
             }
         }
     }
 
     private static void GrowNacelles(VoxelGrid grid, ShipParameters p, IReadOnlyList<HullColumn> hulls, Layout layout, int len, int maxHH)
     {
+        var detail = DetailUnit(len);
         var radius = Math.Max(2, (int)MathF.Round(maxHH * 0.75f * p.NacelleWidth));
         var halfLength = Math.Max(4, (int)MathF.Round(len * 0.2f * p.NacelleLength));
-        var centerZ = (int)MathF.Round(Math.Clamp(layout.NacelleCenter, 0.35f, 0.8f) * (len - 1));
 
-        // Hang the pod off the outboard hull so its pylon has something to attach to.
-        var hullHalfWidth = OuterEdge(hulls, Math.Clamp(centerZ, 0, len - 1));
+        // Which hull the pylons spring from. On a composite ship this is the whole difference
+        // between a Starfleet layout and a wrong one: the pods belong on the engineering hull, and
+        // "widest" would put them on the saucer's rim, where they read as ordinary wing pods.
+        var mount = p.NacelleMount switch
+        {
+            NacelleMount.Primary => hulls[0],
+            NacelleMount.Secondary => hulls[^1],
+            _ => null,
+        };
+
+        var reference = mount ?? hulls[0];
+        var env = reference.Envelope;
+
+        // Placed along the mounting hull's own extent rather than the ship's, or a pod nominally at
+        // 60% of the ship would sit off the end of a hull that stops at 55%.
+        var first = env.FirstZ;
+        var last = env.LastZ;
+        var centerZ = Math.Clamp(
+            first + (int)MathF.Round(Math.Clamp(layout.NacelleCenter, 0.35f, 0.8f) * (last - first)), 0, len - 1);
+
+        var rootX = mount is null
+            ? OuterEdge(hulls, centerZ)
+            : mount.XOffset + Math.Max(1, mount.Envelope.HalfWidth[centerZ]);
+        var rootY = env.CentreY;
 
         // Clearance between hull flank and pod, scaled off the hull's own height so the gap stays
         // proportionally the same at any voxel resolution rather than shrinking as voxels get finer.
         var gap = Math.Max(1, (int)MathF.Round(maxHH * 0.6f * p.NacelleSpacing));
-        var nacelleX = hullHalfWidth + radius + gap;
+        var nacelleX = rootX + radius + gap;
 
         // Where the pod sits relative to its root. Rise lifts it above the hull instead of slinging
         // it underneath, sweep pushes it aft: together they give the raised, swept-back mounting
         // that reads as a warp nacelle rather than an engine pod bolted under a wing.
-        var nacelleY = (int)MathF.Round((radius + 1) * p.NacelleRise);
-        var nacelleZ = centerZ + (int)MathF.Round(len * 0.5f * p.NacelleSweep);
-        nacelleZ = Math.Clamp(nacelleZ, halfLength, len - 1);
+        var nacelleY = rootY + (int)MathF.Round((radius + 1) * p.NacelleRise);
+        var nacelleZ = Math.Clamp(centerZ + (int)MathF.Round(len * 0.5f * p.NacelleSweep), halfLength, len - 1);
 
-        var pylonHalfThickness = Math.Max(1, DetailUnit(len));
-        GrowPylon(grid, hullHalfWidth, centerZ, nacelleX, nacelleY, nacelleZ, pylonHalfThickness);
+        var pylonHalfThickness = Math.Max(1, detail);
+        var pylonHalfChord = Math.Max(pylonHalfThickness,
+            (int)MathF.Round(pylonHalfThickness * Math.Clamp(p.PylonChord, 0.2f, 6f)));
+        GrowPylon(grid, rootX, rootY, centerZ, nacelleX, nacelleY, nacelleZ, pylonHalfThickness, pylonHalfChord);
+
+        var warp = p.NacelleStyle == NacelleStyle.Warp;
+        var collectorDepth = Math.Max(1, detail);
+        var grilleHalfHeight = Math.Max(1, radius / 3);
+        var grilleBand = Math.Max(1, detail / 2);
 
         for (var dz = -halfLength; dz <= halfLength; dz++)
         {
             var z = nacelleZ + dz;
+            if (z < 0 || z >= len) continue;
 
             // Taper the pod toward both ends so it reads as a streamlined engine pod.
             var t = MathF.Abs(dz) / (float)halfLength;
             var r = (int)MathF.Round(radius * (1f - t * t * 0.55f));
-            var material = dz == halfLength ? VoxelMaterial.Glow : VoxelMaterial.Hull;
+
+            // The collector caps the *front* -- bow is z=0 -- while a plain thruster lights the
+            // aft end instead. Which end glows is most of what separates the two readings.
+            var collector = warp && dz <= -halfLength + collectorDepth;
+            var thruster = !warp && dz == halfLength;
+            var inGrilleSpan = warp && MathF.Abs(dz) < halfLength * 0.72f;
 
             for (var dx = -r; dx <= r; dx++)
                 for (var dy = -r; dy <= r; dy++)
                 {
                     if (dx * dx + dy * dy > r * r + r) continue;
+
+                    var material = VoxelMaterial.Hull;
+                    if (collector || thruster)
+                    {
+                        material = VoxelMaterial.Glow;
+                    }
+                    else if (inGrilleSpan && MathF.Abs(dy) <= grilleHalfHeight)
+                    {
+                        // The lit grille runs along the pod's flanks at mid-height. Found from the
+                        // circle's own edge at this dy rather than from a fixed dx, or the band
+                        // would sink inside the pod wherever the section is widest.
+                        var edge = (int)MathF.Sqrt(Math.Max(0, r * r + r - dy * dy));
+                        if (Math.Abs(dx) >= edge - grilleBand) material = VoxelMaterial.Glow;
+                    }
+
                     grid.SetMirrored(nacelleX + dx, nacelleY + dy, z, material);
                 }
         }
@@ -723,20 +1076,27 @@ public static class VoxelShipGrower
     /// Stepping along the longest axis guarantees consecutive samples move at most one voxel on
     /// it and no more on the others, so the boxes always overlap and the pod stays attached
     /// however steep the sweep.
+    ///
+    /// The cross-section is thin vertically and deep fore-and-aft, so raising
+    /// <paramref name="halfChord"/> turns the strut into the broad swept blade Starfleet pylons
+    /// are, rather than merely a thicker rod.
     /// </summary>
-    private static void GrowPylon(VoxelGrid grid, int rootX, int rootZ, int tipX, int tipY, int tipZ, int halfThickness)
+    private static void GrowPylon(
+        VoxelGrid grid, int rootX, int rootY, int rootZ, int tipX, int tipY, int tipZ,
+        int halfThickness, int halfChord)
     {
-        var steps = Math.Max(1, Math.Max(Math.Abs(tipX - rootX), Math.Max(Math.Abs(tipY), Math.Abs(tipZ - rootZ))));
+        var steps = Math.Max(1, Math.Max(
+            Math.Abs(tipX - rootX), Math.Max(Math.Abs(tipY - rootY), Math.Abs(tipZ - rootZ))));
 
         for (var i = 0; i <= steps; i++)
         {
             var t = i / (float)steps;
             var x = (int)MathF.Round(rootX + (tipX - rootX) * t);
-            var y = (int)MathF.Round(tipY * t);
+            var y = (int)MathF.Round(rootY + (tipY - rootY) * t);
             var z = (int)MathF.Round(rootZ + (tipZ - rootZ) * t);
 
             for (var dy = -halfThickness; dy <= halfThickness; dy++)
-                for (var dz = -halfThickness; dz <= halfThickness; dz++)
+                for (var dz = -halfChord; dz <= halfChord; dz++)
                     grid.SetMirrored(x, y + dy, z + dz, VoxelMaterial.HullDark);
         }
     }
@@ -751,7 +1111,7 @@ public static class VoxelShipGrower
         // barely breaks the deck line, and a floor of 0.4 made the bottom of the slider's travel
         // do nothing at all.
         var scale = Math.Max(0.1f, p.SuperstructureSize);
-        var y = env.Top[centerZ];
+        var y = env.DeckY(centerZ);
 
         // On a hollow hull the centreline is empty, so the tower is seated on the band instead.
         var spine = env.SpineOffset(centerZ);
@@ -851,7 +1211,10 @@ public static class VoxelShipGrower
     private static void GrowEnginesOnHull(VoxelGrid grid, ShipParameters p, HullColumn hull, int len, int maxHH)
     {
         var env = hull.Envelope;
-        var tailZ = len - 1;
+
+        // This hull's own stern, not the ship's. A saucer stops short of the stern, and its engines
+        // belong at its trailing edge -- which is exactly where Starfleet puts impulse engines.
+        var tailZ = env.LastZ;
         var tailHalfWidth = Math.Max(2, HalfWidthOf(hull, tailZ));
         var tailTop = Math.Max(1, (int)MathF.Round(env.Top[tailZ]));
         var count = Math.Max(1, p.EngineCount);
@@ -898,7 +1261,7 @@ public static class VoxelShipGrower
                         if (d2 > radius * radius + radius) continue;
                         // Ring engines are hollow: only the outer shell is solid.
                         if (p.EngineStyle == EngineStyle.Ring && d2 < (radius - 1) * (radius - 1)) continue;
-                        grid.SetMirrored(hull.XOffset + spine + ex + dx, ey + dy, z, VoxelMaterial.HullDark);
+                        grid.SetMirrored(hull.XOffset + spine + ex + dx, env.CentreY + ey + dy, z, VoxelMaterial.HullDark);
                     }
             }
 
@@ -912,7 +1275,7 @@ public static class VoxelShipGrower
                     for (var dy = -r; dy <= r; dy++)
                     {
                         if (dx * dx + dy * dy > r * r + r) continue;
-                        grid.SetMirrored(hull.XOffset + spine + ex + dx, ey + dy, tailZ + dz, VoxelMaterial.Glow);
+                        grid.SetMirrored(hull.XOffset + spine + ex + dx, env.CentreY + ey + dy, tailZ + dz, VoxelMaterial.Glow);
                     }
             }
         }
@@ -1031,7 +1394,7 @@ public static class VoxelShipGrower
             var outerHalfWidth = HalfWidthOf(outerHull, z);
             if (outerHalfWidth >= 1)
             {
-                var stripeY = (int)MathF.Round(outerHull.Envelope.Top[z] * 0.35f);
+                var stripeY = outerHull.Envelope.DeckFractionY(z, 0.35f);
                 for (var dy = 0; dy < detail; dy++)
                 {
                     var searchTo = outerHull.XOffset + outerHalfWidth + 1;
@@ -1094,7 +1457,7 @@ public static class VoxelShipGrower
             // detail-sized patch rather than a single voxel, so ports stay legible as windows.
             for (var row = 0; row < 2; row++)
             {
-                var y0 = (int)MathF.Round(env.Top[z] * (row == 0 ? 0.55f : 0.15f));
+                var y0 = env.DeckFractionY(z, row == 0 ? 0.55f : 0.15f);
 
                 for (var dz = 0; dz < detail; dz++)
                     for (var dy = 0; dy < detail; dy++)
@@ -1234,5 +1597,5 @@ public static class VoxelShipGrower
     /// on it. Turrets, the tower and the mast are built from the same plating materials as the
     /// hull, so <see cref="IsPlating"/> cannot tell them apart -- without this guard the carving
     /// pass eats into mounted structures and can detach a turret or its barrel from the ship.</summary>
-    private static bool IsHullDeck(HullColumn hull, int y, int z) => y <= hull.Envelope.Top[z];
+    private static bool IsHullDeck(HullColumn hull, int y, int z) => y <= hull.Envelope.DeckY(z);
 }
