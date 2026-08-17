@@ -59,6 +59,10 @@ public static class GltfMeshConverter
             }
         }
 
+        // Frozen before it is returned. Not an optimisation -- although it is one: a WPF Freezable
+        // built on a worker thread belongs to that thread and throws the moment the UI touches it.
+        // Freezing releases it, which is what lets generation happen off the UI thread at all.
+        group.Freeze();
         return group;
     }
 

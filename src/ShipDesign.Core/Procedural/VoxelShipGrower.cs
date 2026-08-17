@@ -64,13 +64,19 @@ public static class VoxelShipGrower
     /// dimension is the problem. "Reduce the length or the beam" is useless advice on a saucer,
     /// whose width is its length -- the beam is not what is making it expensive.
     /// </summary>
-    public readonly record struct BoundingBox(int Length, int Width, int Height, double HullFactor)
+    public readonly record struct BoundingBox(
+        int Length, int Width, int Height, double HullFactor, bool WidthFollowsLength)
     {
         public long Voxels => (long)(Length * (long)Width * Height * HullFactor);
 
-        /// <summary>The dimension carrying most of the volume, as something a person can act on.</summary>
+        /// <summary>
+        /// The dimension carrying most of the volume, named as something a person can actually act
+        /// on. On a disc that is never the width: a saucer's width is its length, and there is no
+        /// slider that narrows it, so the advice has to point at the length even when the width is
+        /// the larger number.
+        /// </summary>
         public string Dominant =>
-            Width >= Length && Width >= Height ? "la largeur"
+            Width >= Length && Width >= Height ? (WidthFollowsLength ? "la longueur" : "la largeur")
             : Height >= Length ? "le creux"
             : "la longueur";
     }
@@ -111,14 +117,16 @@ public static class VoxelShipGrower
             var stackedHeight = 4 * halfHeight
                 + Math.Max(1, (int)MathF.Round(halfWidth * Math.Clamp(p.SecondaryHullDrop, 0.2f, 4f)));
 
-            return new BoundingBox(length, 2 * Math.Max(primaryHalfWidth, halfWidth), stackedHeight, 1.0);
+            return new BoundingBox(length, 2 * Math.Max(primaryHalfWidth, halfWidth), stackedHeight, 1.0,
+                HullShapeProfile.IsDisc(p.HullShape));
         }
 
         // Outriggers are smaller than the primary and sit beside it, so a trimaran is nearer twice
         // the volume than three times it.
         var parallel = Math.Clamp(p.HullCount, 1, 3) switch { 1 => 1.0, 2 => 2.0, _ => 2.3 };
 
-        return new BoundingBox(length, 2 * planHalfWidth, 2 * halfHeight, parallel);
+        return new BoundingBox(length, 2 * planHalfWidth, 2 * halfHeight, parallel,
+            HullShapeProfile.IsDisc(p.HullShape));
     }
 
     private sealed class Envelope

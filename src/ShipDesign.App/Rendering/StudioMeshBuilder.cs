@@ -104,6 +104,13 @@ public static class StudioMeshBuilder
             ? new Rect3D(0, 0, 0, 1, 1, 1)
             : new Rect3D(minX, minY, minZ, maxX - minX, maxY - minY, maxZ - minZ);
 
+        // Frozen here rather than by each caller. A WPF Freezable built on a worker thread belongs to
+        // that thread and throws when the dispatcher touches it, so freezing is what makes it legal
+        // to build this off the UI thread -- which a hundred-thousand-voxel ship now needs. It also
+        // lets one set of meshes be shared by the sheet's five viewports.
+        solid.Freeze();
+        glow.Freeze();
+
         return new Result(solid, glow, bounds, palette);
     }
 

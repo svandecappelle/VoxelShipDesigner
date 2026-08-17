@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
@@ -21,14 +23,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly DispatcherTimer _rebuildDebounce = new() { Interval = TimeSpan.FromMilliseconds(140) };
 
     /// <summary>
-    /// Ceiling on the bounding volume a ship may occupy. Set from measurement rather than taste:
-    /// the previous sliders' far corner already reached about 530k and took nine tenths of a
-    /// second, so this leaves close to twice that headroom while stopping short of the multi-second,
-    /// multi-gigabyte builds the widened ranges can otherwise ask for.
+    /// Ceiling on the bounding volume a ship may occupy. Raised from a million once generation moved
+    /// off the UI thread, since a slow build no longer freezes the window -- but set from
+    /// measurement, not from the fact that it can now be waited out.
+    ///
+    /// Measured on the full path, glTF included: 3.5M of box comes out around 1.6M voxels and 670k
+    /// triangles in a little over four seconds and 550 MB. The next step up, 5.7M, takes seven and a
+    /// half seconds and 866k triangles, which WPF's fixed-function viewport cannot orbit smoothly --
+    /// so the binding constraint is what the preview can *show*, not what the machine can build.
     /// </summary>
-    private const long MaxBoundingVoxels = 1_000_000;
+    private const long MaxBoundingVoxels = 3_500_000;
 
     private SharpGLTF.Schema2.ModelRoot? _currentModel;
+    private bool _buildInFlight;
+    private bool _buildPending;
+    private bool _isGenerating;
     private Model3D? _shipModel;
     private string _statusText = "";
     private string _seedText;
@@ -157,6 +166,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public Color CockpitTintColor { get => ToWpf(_parameters.CockpitTintColor); set { _parameters.CockpitTintColor = ToShip(value); OnPropertyChanged(); Rebuild(); } }
 
     public Model3D? ShipModel { get => _shipModel; private set { _shipModel = value; OnPropertyChanged(); } }
+
+    /// <summary>Whether a generation is running. Drives the busy indicator, so a build that takes
+    /// seconds looks like work in progress rather than like a frozen application.</summary>
+    public bool IsGenerating { get => _isGenerating; private set { _isGenerating = value; OnPropertyChanged(); } }
     public string StatusText { get => _statusText; private set { _statusText = value; OnPropertyChanged(); } }
     public string Designation { get => _designation; private set { _designation = value; OnPropertyChanged(); } }
     public string MassClass { get => _massClass; private set { _massClass = value; OnPropertyChanged(); } }
@@ -343,41 +356,104 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _rebuildDebounce.Start();
     }
 
-    private void RebuildNow()
+    /// <summary>
+    /// Runs one generation at a time on a worker thread, and remembers whether another was asked for
+    /// while it ran.
+    ///
+    /// Serialised rather than fired per request on purpose. Starting a second build concurrently
+    /// would have two multi-hundred-megabyte voxel grids alive at once, which is the one thing the
+    /// budget exists to prevent; queueing every request instead would work through a backlog of ships
+    /// nobody wants to see any more. One in flight plus "the newest request wins" gives both bounded
+    /// memory and the right final answer.
+    ///
+    /// The flags are only ever touched on the UI thread -- this is async void on the dispatcher, so
+    /// the continuation after each await comes back to it -- which is why they need no locking.
+    /// </summary>
+    private async void RebuildNow()
     {
-        // Length and beam multiply, so the far corner of the two is far more expensive than either
-        // slider suggests on its own -- enough to spend seconds and gigabytes. Refused rather than
-        // silently clamped: a slider that moves while the ship ignores it is worse than being told
-        // why nothing happened, and the previous ship stays on screen meanwhile.
-        var box = VoxelShipGrower.BoundingBoxFor(_parameters);
-        if (box.Voxels > MaxBoundingVoxels)
+        if (_buildInFlight)
         {
-            // Names the dimension actually responsible. "Reduce the length or the beam" was useless
-            // advice on a disc planform, whose width *is* its length -- the beam is not what makes it
-            // expensive, and the user is left dragging the wrong slider.
-            var disc = HullShapeProfile.IsDisc(_parameters.HullShape)
-                ? " (sur une soucoupe ou un anneau, la longueur fixe aussi la largeur)"
-                : "";
-
-            StatusText = $"Gabarit trop grand : encombrement {box.Length} × {box.Width} × {box.Height} voxels " +
-                         $"= {box.Voxels / 1000:N0}k, maximum {MaxBoundingVoxels / 1000:N0}k. " +
-                         $"Réduire {box.Dominant}{disc}.";
+            _buildPending = true;
             return;
         }
 
+        _buildInFlight = true;
+        IsGenerating = true;
+
         try
         {
-            _currentModel = ProceduralShipBuilder.Build(_parameters);
-            ShipModel = GltfMeshConverter.ToModel3DGroup(_currentModel);
-            Designation = ProceduralShipBuilder.Designation(_parameters);
-            MassClass = ProceduralShipBuilder.MassClass(_parameters);
-            TriangleCount = ProceduralShipBuilder.CountTriangles(_currentModel);
-            StatusText = $"Vaisseau '{Designation}' généré ({TriangleCount} triangles).";
+            do
+            {
+                _buildPending = false;
+
+                // Snapshotted before crossing to the worker: the UI keeps mutating the live
+                // parameters while the build runs, and a ship grown from half of one setting and
+                // half of the next is not a ship anyone asked for.
+                var snapshot = _parameters.Clone();
+
+                // Length, beam and depth multiply -- the grid is a volume -- so the far corner is far
+                // more expensive than any one slider suggests. Refused rather than silently clamped:
+                // a slider that moves while the ship ignores it is worse than being told why nothing
+                // happened, and the previous ship stays on screen meanwhile.
+                var box = VoxelShipGrower.BoundingBoxFor(snapshot);
+                if (box.Voxels > MaxBoundingVoxels)
+                {
+                    // Names the dimension actually responsible. "Reduce the length or the beam" was
+                    // useless advice on a disc planform, whose width *is* its length.
+                    var disc = HullShapeProfile.IsDisc(snapshot.HullShape)
+                        ? " (sur une soucoupe ou un anneau, la longueur fixe aussi la largeur)"
+                        : "";
+
+                    StatusText = $"Gabarit trop grand : encombrement {box.Length} × {box.Width} × {box.Height} voxels " +
+                                 $"= {box.Voxels / 1000:N0}k, maximum {MaxBoundingVoxels / 1000:N0}k. " +
+                                 $"Réduire {box.Dominant}{disc}.";
+                    continue;
+                }
+
+                StatusText = $"Génération en cours — encombrement {box.Voxels / 1000:N0}k voxels…";
+
+                var stopwatch = Stopwatch.StartNew();
+                try
+                {
+                    var built = await Task.Run(() => Generate(snapshot));
+                    stopwatch.Stop();
+
+                    _currentModel = built.Model;
+                    ShipModel = built.Visual;
+                    Designation = built.Designation;
+                    MassClass = built.MassClass;
+                    TriangleCount = built.Triangles;
+                    StatusText = $"Vaisseau '{built.Designation}' généré ({built.Triangles:N0} triangles, " +
+                                 $"{stopwatch.Elapsed.TotalSeconds:0.0} s).";
+                }
+                catch (Exception ex)
+                {
+                    StatusText = $"Erreur de génération : {ex.Message}";
+                }
+            }
+            while (_buildPending);
         }
-        catch (Exception ex)
+        finally
         {
-            StatusText = $"Erreur de génération : {ex.Message}";
+            _buildInFlight = false;
+            IsGenerating = false;
         }
+    }
+
+    private sealed record Built(
+        SharpGLTF.Schema2.ModelRoot Model, Model3D Visual, string Designation, string MassClass, int Triangles);
+
+    /// <summary>Everything that can be done off the UI thread. The visual comes back frozen, which
+    /// is what makes it legal to hand a WPF object built on a worker to the dispatcher.</summary>
+    private static Built Generate(ShipParameters p)
+    {
+        var model = ProceduralShipBuilder.Build(p);
+        return new Built(
+            model,
+            GltfMeshConverter.ToModel3DGroup(model),
+            ProceduralShipBuilder.Designation(p),
+            ProceduralShipBuilder.MassClass(p),
+            ProceduralShipBuilder.CountTriangles(model));
     }
 
     private void Export()

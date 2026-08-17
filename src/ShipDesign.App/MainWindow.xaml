@@ -42,16 +42,45 @@
                     </StackPanel>
                 </StackPanel>
 
-                <Border Grid.Column="1" VerticalAlignment="Center" Background="{StaticResource AccentAmberDimBrush}"
-                        BorderBrush="{StaticResource AccentAmberBrush}" BorderThickness="1" CornerRadius="2"
-                        Padding="12,6">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="DÉSIGNATION" FontSize="9.5" Foreground="{StaticResource TextDimBrush}"
-                                   Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Designation}" FontSize="12.5" FontWeight="SemiBold"
-                                   Foreground="{StaticResource AccentAmberBrush}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+
+                    <!-- Busy indicator. Generation runs on a worker thread now, so a heavy ship takes
+                         seconds while the window stays live; without something moving, "still working"
+                         and "hung" look exactly the same. -->
+                    <Border x:Name="BusyIndicator" Margin="0,0,14,0" Padding="11,6" CornerRadius="2"
+                            Background="{StaticResource BgDeepBrush}"
+                            BorderBrush="{StaticResource LineCyanBrush}" BorderThickness="1"
+                            Visibility="{Binding IsGenerating, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="9" Height="9" Fill="{StaticResource LineCyanBrush}" VerticalAlignment="Center">
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="1" To="0.15" Duration="0:0:0.6"
+                                                                 AutoReverse="True" RepeatBehavior="Forever" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <TextBlock Text="GÉNÉRATION" FontSize="9.5" Margin="8,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource LineCyanBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="{StaticResource AccentAmberDimBrush}"
+                            BorderBrush="{StaticResource AccentAmberBrush}" BorderThickness="1" CornerRadius="2"
+                            Padding="12,6">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="DÉSIGNATION" FontSize="9.5" Foreground="{StaticResource TextDimBrush}"
+                                       Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Designation}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource AccentAmberBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 

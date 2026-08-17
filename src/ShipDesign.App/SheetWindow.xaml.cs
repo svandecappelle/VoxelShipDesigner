@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
@@ -36,16 +37,19 @@ namespace ShipDesign.App
 
         private sealed record Swatch(string Name, Brush Brush);
 
-        private void Compose(ShipParameters parameters)
+        /// <summary>Built on a worker thread for the same reason the studio is: the occlusion and
+        /// shadow passes make this the slowest thing in the application on a large ship, and the
+        /// sheet's own window would otherwise open blank and unresponsive while it ran.</summary>
+        private async void Compose(ShipParameters parameters)
         {
-            var grid = ProceduralShipBuilder.BuildVoxels(parameters);
-            var result = StudioMeshBuilder.Build(grid, VoxelShipGrower.VoxelSize, parameters);
+            StatusLabel.Text = "Génération de la planche…";
 
-            // Frozen so one set of meshes can be shared by five viewports. Without this each view
-            // would need its own copy of a 30k-triangle model, which is both slow to build and
-            // pointless -- they are all looking at the same ship.
-            result.Solid.Freeze();
-            result.Emissive.Freeze();
+            var snapshot = parameters.Clone();
+            var (grid, result) = await Task.Run(() =>
+            {
+                var g = ProceduralShipBuilder.BuildVoxels(snapshot);
+                return (g, StudioMeshBuilder.Build(g, VoxelShipGrower.VoxelSize, snapshot));
+            });
 
             var bounds = result.Bounds;
             var centre = new Point3D(

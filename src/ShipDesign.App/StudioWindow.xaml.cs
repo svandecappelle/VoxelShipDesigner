@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using System.Threading.Tasks;
 using System.Windows.Media.Media3D;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -57,10 +58,22 @@ namespace ShipDesign.App
 
         private void OnFrame(object? sender, EventArgs e) => MirrorCamera();
 
-        private void Render(ShipParameters parameters)
+        /// <summary>
+        /// Builds the scene on a worker thread. The studio pays for ambient occlusion and a traced
+        /// shadow on every face on top of the grow itself, so on a large ship this is the slowest
+        /// thing in the application -- doing it on the dispatcher would leave a window that has
+        /// opened but painted nothing, which is indistinguishable from a hang.
+        /// </summary>
+        private async void Render(ShipParameters parameters)
         {
-            var grid = ProceduralShipBuilder.BuildVoxels(parameters);
-            var result = StudioMeshBuilder.Build(grid, VoxelShipGrower.VoxelSize, parameters);
+            StatusLine.Text = "Génération du rendu studio…";
+
+            var snapshot = parameters.Clone();
+            var (grid, result) = await Task.Run(() =>
+            {
+                var g = ProceduralShipBuilder.BuildVoxels(snapshot);
+                return (g, StudioMeshBuilder.Build(g, VoxelShipGrower.VoxelSize, snapshot));
+            });
 
             var centre = new Point3D(
                 result.Bounds.X + result.Bounds.SizeX / 2,

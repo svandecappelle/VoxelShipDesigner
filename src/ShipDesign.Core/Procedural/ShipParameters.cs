@@ -4,6 +4,24 @@ namespace ShipDesign.Core.Procedural;
 /// layer owns one instance and rebuilds the ship whenever a field changes.</summary>
 public sealed class ShipParameters
 {
+    /// <summary>
+    /// An independent copy. Generation runs on a worker thread while the UI keeps mutating the live
+    /// instance, so the worker must be handed a snapshot -- reading fields that another thread is
+    /// writing gives a ship built from half of one setting and half of the next.
+    ///
+    /// Copied by reflection rather than field by field for the same reason the silhouettes are: a
+    /// parameter added later is carried without anyone remembering to add it here, and a snapshot
+    /// that silently missed a field would be a very hard bug to see.
+    /// </summary>
+    public ShipParameters Clone()
+    {
+        var copy = new ShipParameters();
+        foreach (var property in typeof(ShipParameters).GetProperties())
+            if (property.CanWrite)
+                property.SetValue(copy, property.GetValue(this));
+        return copy;
+    }
+
     public HullClass HullClass { get; set; } = HullClass.Fighter;
 
     /// <summary>Whether the hulls sit side by side or stack fore-and-aft with a neck between them.
