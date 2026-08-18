@@ -64,6 +64,19 @@ public sealed class ShipParameters
     /// <see cref="HullCount"/> is 1.</summary>
     public HullShape SecondaryHullShape { get; set; } = HullShape.Spindle;
 
+    /// <summary>
+    /// Radial arms joining an annular hull's band to its centre, turning a bare torus into a wheel.
+    /// Ignored by every other planform.
+    /// </summary>
+    public int WheelSpokes { get; set; } = 4;
+
+    /// <summary>A body at the hub of a wheel: the docking core a rotating ring turns around.</summary>
+    public bool WheelHub { get; set; } = true;
+
+    /// <summary>Hub size, as a multiple of its default. The default is a fraction of the ring's own
+    /// inner radius, so it stays proportionate whatever the ring's size.</summary>
+    public float WheelHubSize { get; set; } = 1f;
+
     public float Length { get; set; } = 14f;
     public float Beam { get; set; } = 3.2f;
 

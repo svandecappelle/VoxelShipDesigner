@@ -274,13 +274,16 @@ public sealed record ShipSilhouette(string Universe, string Name, string Summary
             }),
 
         Of(Archetypes, "Anneau",
-            "Coque annulaire creuse, moteurs sur la bande, pods déportés",
+            "Roue : bande annulaire, six rayons et un moyeu central, moteurs sur la bande",
             p =>
             {
                 p.HullClass = HullClass.Cruiser;
                 p.HullArrangement = HullArrangement.Parallel;
                 p.HullCount = 1;
                 p.HullShape = HullShape.Ring;
+                p.WheelSpokes = 6;
+                p.WheelHub = true;
+                p.WheelHubSize = 1.1f;
                 p.Length = 20f;
                 p.Beam = 5f;
                 p.Taper = 0.3f;

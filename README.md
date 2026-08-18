@@ -78,7 +78,7 @@ univers, un pli repliable par franchise.
 | Archétypes | Cargo lourd | Corps cubique, tourelle massive, mât d'antenne |
 | Archétypes | Catamaran | Deux coques parallèles reliées par des entretoises |
 | Archétypes | Soucoupe | Disque à terrasses concentriques et nervures radiales |
-| Archétypes | Anneau | Coque creuse, structures posées sur la bande |
+| Archétypes | Anneau | Roue : bande annulaire, rayons et moyeu central |
 
 Trois façons de laisser le hasard décider, du plus doux au plus brutal :
 
@@ -95,6 +95,16 @@ qui passerait de deux à six tuyères ne serait plus une variation de quoi que c
 Le **Vaisseau aléatoire** tire l'ensemble des axes, en resserrant les choix incohérents : une coque
 composée ne reçoit pas d'ailes, et ses deux coques ne sont pas tirées indépendamment, sans quoi on
 obtient deux dalles partageant un col plutôt qu'un vaisseau.
+
+### La roue
+
+La forme de coque **Anneau** est une roue, pas un tore : des rayons traversent le trou et portent un
+moyeu au centre — le noyau autour duquel la bande tourne. Nombre de rayons, présence et taille du
+moyeu se règlent dans le panneau **Forme**, qui ne montre ces contrôles que pour une coque annulaire.
+
+Un moyeu réclame au moins trois rayons et les impose s'il en manque : sans eux il serait détaché de
+la bande, et le balayage de fragments le supprimerait purement et simplement — la case à cocher
+n'aurait alors aucun effet visible.
 
 ## Naviguer dans la vue 3D
 

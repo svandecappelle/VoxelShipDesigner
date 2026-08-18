@@ -33,6 +33,30 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
+            <!-- Une coque annulaire est un tore tant que rien ne traverse le trou. -->
+            <StackPanel Visibility="{Binding IsWheel, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Margin="0,0,0,10">
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Rayons de la roue" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WheelSpokes}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="12" Value="{Binding WheelSpokes}"
+                        TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10"
+                        ToolTip="Bras reliant la bande au centre. Un moyeu en exige au moins trois : sans eux il serait détaché et supprimé." />
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <CheckBox Style="{StaticResource ToggleSwitchStyle}" IsChecked="{Binding WheelHub}" Margin="0,0,8,0" />
+                    <TextBlock Text="Moyeu central" FontSize="10.5" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Grid Margin="0,0,0,4">
+                    <TextBlock Text="Taille du moyeu" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
+                    <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding WheelHubSize, StringFormat='{}{0:0.0}×'}" />
+                </Grid>
+                <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0.2" Maximum="3" Value="{Binding WheelHubSize}"
+                        ToolTip="Rapporté au rayon intérieur de l'anneau, donc proportionné quelle que soit sa taille." />
+            </StackPanel>
+
             <TextBlock Text="Disposition des coques" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,6" />
             <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding HullArrangements}"
                      SelectedItem="{Binding HullArrangement}" Margin="0,0,0,10">

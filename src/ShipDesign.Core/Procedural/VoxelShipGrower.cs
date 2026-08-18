@@ -556,6 +556,13 @@ public static class VoxelShipGrower
             if (HullShapeProfile.IsDisc(hull.Shape))
                 GrowDiscStructure(grid, p, hull, lengthVoxels);
 
+        // An annular hull is a bare torus until something crosses the hole. Spokes and a hub are
+        // what make it read as a wheel -- a station the ring turns around -- rather than as a
+        // doughnut, and they go in here, before anything reads the surface.
+        foreach (var hull in hulls)
+            if (hull.Shape == HullShape.Ring)
+                GrowWheelStructure(grid, p, hull, lengthVoxels);
+
         if (!HullShapeProfile.IsDisc(primary.Shape))
             AddDeckTerraces(grid, p, primary, lengthVoxels);
 
@@ -1276,6 +1283,103 @@ public static class VoxelShipGrower
         // above Top[] as a mounted structure -- would refuse to decorate the disc at all.
         for (var z = 0; z < len; z++)
             if (raisedTop[z] != int.MinValue) env.RaiseDeckTo(z, raisedTop[z]);
+    }
+
+    /// <summary>
+    /// Spokes across the hole and a hub at the middle of an annular hull.
+    ///
+    /// The ring's own band is built by the envelope; everything here lives in the hole, which is
+    /// empty space as far as every other pass is concerned. Both are laid in the plane of the ring
+    /// and at the band's own mid-height, so the wheel reads as one object seen edge-on rather than
+    /// as a disc with a bar glued across it.
+    ///
+    /// Spokes are drawn from the band inward and deliberately overlap it, so the hub is joined to
+    /// the ship through them by construction. A hub reached by arithmetic that stops a voxel short
+    /// would be cut off by the fragment sweep and simply not exist -- which is how a feature ends up
+    /// silently doing nothing.
+    /// </summary>
+    private static void GrowWheelStructure(VoxelGrid grid, ShipParameters p, HullColumn hull, int len)
+    {
+        var env = hull.Envelope;
+        var outer = env.HalfWidth.Max();
+        if (outer < 8) return;
+
+        var centreZ = (env.FirstZ + env.LastZ) / 2;
+        var inner = env.InnerHalfWidth[Math.Clamp(centreZ, 0, len - 1)];
+        if (inner < 3) return;
+
+        var detail = DetailUnit(len);
+        var midY = env.CentreY;
+
+        // A hub with nothing holding it is a hub the fragment sweep deletes, so asking for one asks
+        // for the arms that carry it. Three rather than two: a pair reads as an axle through the
+        // ring, which is a different object.
+        var spokes = Math.Clamp(p.WheelSpokes, 0, 12);
+        if (p.WheelHub && spokes < 3) spokes = 3;
+
+        var hubRadius = p.WheelHub
+            ? Math.Clamp((int)MathF.Round(inner * 0.42f * Math.Max(0.1f, p.WheelHubSize)), 2, inner - 2)
+            : 0;
+
+        var spokeHalfThickness = Math.Max(1, detail);
+        var spokeHalfHeight = Math.Max(1, (int)MathF.Round(env.Top[Math.Clamp(centreZ, 0, len - 1)] * 0.45f));
+
+        for (var i = 0; i < spokes; i++)
+        {
+            var angle = i / (float)spokes * MathF.PI * 2f;
+            var dirX = MathF.Cos(angle);
+            var dirZ = MathF.Sin(angle);
+
+            // From the centre out past the band's inner edge. Overshooting into the band is what
+            // welds the spoke to the ring; stopping at the edge leaves it touching along a single
+            // face, which the mirroring and the rounding can turn into no contact at all.
+            for (var r = 0; r <= inner + detail + 1; r++)
+            {
+                var cx = hull.XOffset + (int)MathF.Round(dirX * r);
+                var cz = centreZ + (int)MathF.Round(dirZ * r);
+                if (cz < 0 || cz >= len) continue;
+
+                for (var dx = -spokeHalfThickness; dx <= spokeHalfThickness; dx++)
+                    for (var dz = -spokeHalfThickness; dz <= spokeHalfThickness; dz++)
+                        for (var dy = -spokeHalfHeight; dy <= spokeHalfHeight; dy++)
+                        {
+                            var z = cz + dz;
+                            if (z < 0 || z >= len) continue;
+                            grid.Set(cx + dx, midY + dy, z, VoxelMaterial.Hull);
+                        }
+            }
+        }
+
+        if (hubRadius <= 0) return;
+
+        // Taller than the spokes and than the band: the hub is the thing the wheel turns around, and
+        // a cylinder flush with the rim disappears into the silhouette edge-on.
+        var hubHalfHeight = Math.Max(2, (int)MathF.Round(spokeHalfHeight * 2.2f));
+
+        for (var dx = -hubRadius; dx <= hubRadius; dx++)
+            for (var dz = -hubRadius; dz <= hubRadius; dz++)
+            {
+                var d2 = dx * dx + dz * dz;
+                if (d2 > hubRadius * hubRadius + hubRadius) continue;
+
+                var z = centreZ + dz;
+                if (z < 0 || z >= len) continue;
+
+                // Domed rather than a flat-topped drum: the height falls off toward the rim, which
+                // is what stops it reading as a can.
+                var t = MathF.Sqrt(d2) / hubRadius;
+                var half = Math.Max(1, (int)MathF.Round(hubHalfHeight * (1f - t * t * 0.55f)));
+
+                for (var dy = -half; dy <= half; dy++)
+                {
+                    // A lit band around the hub's waist, so it carries the same window language as
+                    // the rest of the ship instead of being a bare block.
+                    var material = Math.Abs(dy) <= 1 && d2 > (hubRadius - 1) * (hubRadius - 1)
+                        ? VoxelMaterial.Window
+                        : VoxelMaterial.Hull;
+                    grid.Set(hull.XOffset + dx, midY + dy, z, material);
+                }
+            }
     }
 
     private static void AddDeckTerraces(VoxelGrid grid, ShipParameters p, HullColumn primary, int len)

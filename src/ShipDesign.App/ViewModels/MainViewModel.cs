@@ -79,7 +79,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
     };
 
     public HullClass HullClass { get => _parameters.HullClass; set { _parameters.HullClass = value; OnPropertyChanged(); Rebuild(); } }
-    public HullShape HullShape { get => _parameters.HullShape; set { _parameters.HullShape = value; OnPropertyChanged(); Rebuild(); } }
+    public HullShape HullShape
+    {
+        get => _parameters.HullShape;
+        set
+        {
+            _parameters.HullShape = value;
+            OnPropertyChanged();
+            // The wheel controls only apply to an annular hull, so their visibility follows this.
+            OnPropertyChanged(nameof(IsWheel));
+            Rebuild();
+        }
+    }
+
+    /// <summary>Whether the main hull is annular, and so has a hole for spokes and a hub.</summary>
+    public bool IsWheel => _parameters.HullShape == HullShape.Ring;
+
+    public int WheelSpokes { get => _parameters.WheelSpokes; set { _parameters.WheelSpokes = value; OnPropertyChanged(); Rebuild(); } }
+    public bool WheelHub { get => _parameters.WheelHub; set { _parameters.WheelHub = value; OnPropertyChanged(); Rebuild(); } }
+    public float WheelHubSize { get => _parameters.WheelHubSize; set { _parameters.WheelHubSize = value; OnPropertyChanged(); Rebuild(); } }
     public HullShape SecondaryHullShape { get => _parameters.SecondaryHullShape; set { _parameters.SecondaryHullShape = value; OnPropertyChanged(); Rebuild(); } }
 
     public HullArrangement HullArrangement
@@ -293,12 +311,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         p.PylonChord = Drift(p.PylonChord, 0.2f, 6f);
 
         p.GreebleDensity = Drift(p.GreebleDensity, 0f, 1f);
+        p.WheelHubSize = Drift(p.WheelHubSize, 0.2f, 3f);
 
         // Counts move by at most one. A fighter that grew from two engines to six would no longer
         // be a variation of anything.
         p.Decks = Step(p.Decks, 1, 12);
         p.EngineCount = Step(p.EngineCount, 1, 10);
         p.TurretCount = Step(p.TurretCount, 0, 24);
+        p.WheelSpokes = Step(p.WheelSpokes, 0, 12);
 
         OnPropertyChanged(string.Empty);
         StatusText = $"Variante générée sur la même silhouette — graine {p.Seed}.";
