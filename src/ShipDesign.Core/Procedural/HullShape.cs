@@ -99,9 +99,12 @@ public static class HullShapeProfile
     /// </summary>
     public static int EffectiveHalfWidth(HullShape shape, int maxHalfWidth, int lengthVoxels) => shape switch
     {
-        // Half the length: a saucer's diameter *is* its length, which is what makes the plan
-        // circular. Anything less and it comes out an elongated oval instead of a disc.
-        HullShape.Saucer or HullShape.Ring => Math.Max(maxHalfWidth, (int)MathF.Round(lengthVoxels * 0.5f)),
+        // Half the length, exactly: a disc's diameter *is* its length, which is what makes the plan
+        // circular. This used to take the larger of that and the beam, which only guards the
+        // too-narrow side -- a beam wider than the length stretched the disc sideways into an oval,
+        // measured at 171 voxels across against 138 along. It also contradicted what the app already
+        // tells the user, that on a saucer or a ring the length sets the width too.
+        HullShape.Saucer or HullShape.Ring => Math.Max(4, (int)MathF.Round(lengthVoxels * 0.5f)),
         HullShape.Fork => Math.Max(maxHalfWidth, (int)MathF.Round(lengthVoxels * 0.2f)),
         _ => maxHalfWidth,
     };
@@ -130,11 +133,17 @@ public static class HullShapeProfile
 
         return shape switch
         {
-            // Annulus over the middle, ramping to solid before either end. The closure has to be
-            // driven from u rather than left to the outer-width clamp: that clamp keeps a
-            // one-voxel hole open right up to where the hull vanishes, which leaves two
-            // unconnected crescents instead of a ring.
-            HullShape.Ring => 0.55f * Math.Clamp((MathF.Min(u, 1f - u) - 0.12f) / 0.12f, 0f, 1f),
+            // A true concentric annulus, not a scaled copy of the outline.
+            //
+            // Taking the hole as a fixed fraction of the outer half-width is the obvious thing and
+            // is wrong: on a circle the band it leaves is widest at the sides and pinches at the
+            // fore and aft extremes, measuring 14 voxels at one angle against 34 at another -- a
+            // ring 2.4 times thicker in one place than another does not read as a ring.
+            //
+            // For an outer radius of 1 and an inner radius k, the slice at t = 2u - 1 has outer
+            // half-width sqrt(1 - t^2) and inner sqrt(k^2 - t^2), the second being zero outside the
+            // hole. Their ratio is the fraction wanted here, and it closes the ends by itself.
+            HullShape.Ring => RingInnerFraction(u, 0.62f),
 
             // Hollow at the bow and closing by mid-length, which is what makes two prongs that
             // merge rather than two separate hulls.
@@ -142,6 +151,22 @@ public static class HullShapeProfile
 
             _ => 0f,
         };
+    }
+
+    /// <summary>
+    /// Inner-over-outer half-width for a concentric annulus of relative inner radius
+    /// <paramref name="k"/>, at position <paramref name="u"/> along the disc.
+    /// </summary>
+    private static float RingInnerFraction(float u, float k)
+    {
+        var t = 2f * u - 1f;
+        var outer = 1f - t * t;
+        if (outer <= 1e-4f) return 0f;
+
+        var inner = k * k - t * t;
+        if (inner <= 0f) return 0f;
+
+        return MathF.Sqrt(inner) / MathF.Sqrt(outer);
     }
 
     /// <summary>

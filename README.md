@@ -106,6 +106,10 @@ Un moyeu réclame au moins trois rayons et les impose s'il en manque : sans eux 
 la bande, et le balayage de fragments le supprimerait purement et simplement — la case à cocher
 n'aurait alors aucun effet visible.
 
+Le contour d'un disque — soucoupe comme anneau — suit exactement son profil, sans l'ondulation que
+les autres coques reçoivent : un cercle qui ondule n'en est plus un. Le diamètre vaut la longueur,
+et le maître-bau ne s'applique pas.
+
 **Une roue n'a pas de haut.** C'est ce qui la distingue d'un vaisseau, et les structures qui
 supposent un dessus sont donc traitées à part sur une coque annulaire : pas d'arête dorsale, et la
 tourelle de commandement n'est pas plantée sur la jante mais devient un **fuseau traversant le

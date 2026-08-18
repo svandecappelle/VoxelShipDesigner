@@ -902,6 +902,16 @@ public static class VoxelShipGrower
         // Expressed as a *relative* modulation and deliberately modest: as an absolute offset at
         // the previous amplitude, a wave crest could outweigh the planform itself and move the
         // widest point of the ship, which made every shape peak in the same place.
+        // A disc's outline is a circle, and a circle that wanders is not one. The width below is a
+        // random walk with long waves over it, free to bulge to 1.45x -- which is design variation
+        // on an elongated hull and a deformation on a saucer or a ring. Measured on a ring, the
+        // outer radius ranged over 20% and the plan came out 169 voxels across against 138 along,
+        // because the width may swell while the length is fixed at exactly len slices.
+        //
+        // The waves and the noise are still *drawn* for a disc and then ignored, so the random
+        // sequence is identical whatever the planform: consuming a different number of draws would
+        // silently reshuffle every seeded feature downstream.
+        var circular = HullShapeProfile.IsDisc(shape);
         var widthWave = new ProfileWave(rng, 0.11f * preset.Jaggedness);
         var topWave = new ProfileWave(rng, 0.14f * preset.Jaggedness);
         var bottomWave = new ProfileWave(rng, 0.1f * preset.Jaggedness);
@@ -926,13 +936,17 @@ public static class VoxelShipGrower
             // Multiplying rather than adding keeps the waves subordinate to the planform: they
             // swell and pinch the hull the shape already describes instead of redefining it, and
             // they still fade out where the shape closes, so a tapering bow cannot sprout lumps.
-            var targetW = widthProfile * maxHW * (1f + widthWave.At(u));
+            var targetW = widthProfile * maxHW * (circular ? 1f : 1f + widthWave.At(u));
             var targetTop = heightProfile * maxHH * dorsal * (1f + topWave.At(u));
             var targetBottom = heightProfile * maxHH * (0.62f - keelFlatness * 0.38f) * (1f + bottomWave.At(u));
 
             // Upper clamps leave headroom above the nominal size so a wave crest can actually
             // bulge the hull instead of being flattened against the limit.
-            cw = Math.Clamp(cw + (targetW - cw) * 0.5f + Noise(rng, noiseScale), 0f, maxHW * 1.45f);
+            // Drawn either way, applied only to a shape that is allowed to wander.
+            var widthJitter = Noise(rng, noiseScale);
+            cw = circular
+                ? targetW
+                : Math.Clamp(cw + (targetW - cw) * 0.5f + widthJitter, 0f, maxHW * 1.45f);
             ct = Math.Clamp(ct + (targetTop - ct) * 0.5f + Noise(rng, heightNoiseScale * 0.6f), 0f, maxHH * 1.6f);
             cb = Math.Clamp(cb + (targetBottom - cb) * 0.5f + Noise(rng, heightNoiseScale * 0.45f), 0f, maxHH * 1.3f);
 
