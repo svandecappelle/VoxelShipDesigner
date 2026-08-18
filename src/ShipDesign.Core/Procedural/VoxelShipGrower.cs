@@ -1769,11 +1769,49 @@ public static class VoxelShipGrower
         if (seated is null) return;
         var y = seated.Value;
 
+        // Every dimension of the bridge is taken from the hull it stands on, at the station it
+        // stands at -- not from the ship, and not from the envelope's nominal figures.
+        //
+        // The height used to come from maxHH, a half-height derived from the depth parameter and the
+        // class ratio. The hull that actually gets built is a good deal shorter than that wherever
+        // the section is chamfered, flattened at the keel, or a disc -- so the bridge came out
+        // between 46% and 200% of the hull carrying it, measured over the silhouettes: on a
+        // freighter, twice the height of its own ship, and on a saucer half again.
+        //
+        // The length came from the ship's length while the width already came from the hull's, which
+        // is the same mismatch this file has had to fix at four other passes. On a composite ship
+        // the bridge sits on a saucer occupying under half the length, and was sized for the whole.
+        var hullHeight = Math.Max(2, y - env.KeelY(centerZ) + 1);
+        var hullSpan = Math.Max(8, env.LastZ - env.FirstZ + 1);
+
+        // Width comes from the *deck* -- the flat top the bridge actually stands on -- found by
+        // walking outward from its column while the surface stays at the same height.
+        //
+        // It used to come from the envelope's half-width, which is the hull at its widest: mid-
+        // height, before the section chamfers in. On a chamfered or wedge hull the roof is a narrow
+        // strip by comparison, so the bridge was built out over the flanks with nothing under it.
+        // Measured against the deck it sits on it reached 471% on an Imperial destroyer and 409% on
+        // a 90 m hull -- a bridge nearly five times wider than its own roof, which is exactly the
+        // "disproportionate" this was reported as.
+        var deckHalfWidth = 0;
+        var maxReach = Math.Max(1, HalfWidthOf(primary, centerZ));
+        while (deckHalfWidth < maxReach)
+        {
+            var probe = TopFilledY(grid, primary.XOffset + spine + deckHalfWidth + 1, centerZ);
+            if (probe is null || Math.Abs(probe.Value - y) > 1) break;
+            deckHalfWidth++;
+        }
+
         for (var tier = 0; tier < 3; tier++)
         {
-            var halfWidth = Math.Max(1, (int)MathF.Round(HalfWidthOf(primary, centerZ) * (0.55f - tier * 0.13f) * scale));
-            var halfLength = Math.Max(1, (int)MathF.Round(len * (0.09f - tier * 0.02f) * scale));
-            var height = Math.Max(1, (int)MathF.Round(maxHH * (0.45f - tier * 0.08f) * scale));
+            // A shoulder of clear deck is left either side, which is what makes it read as mounted
+            // on the hull rather than as a slab dropped across it.
+            var halfWidth = Math.Max(1, (int)MathF.Round(deckHalfWidth * (0.62f - tier * 0.15f) * scale));
+            var halfLength = Math.Max(1, (int)MathF.Round(hullSpan * (0.09f - tier * 0.02f) * scale));
+
+            // Three tiers sum to a bridge a little under half the hull's own height at scale 1,
+            // which is about where a superstructure reads as one rather than as a second hull.
+            var height = Math.Max(1, (int)MathF.Round(hullHeight * (0.20f - tier * 0.045f) * scale));
 
             for (var dz = -halfLength; dz <= halfLength; dz++)
             {
@@ -1794,9 +1832,9 @@ public static class VoxelShipGrower
         if (p.TowerDomes)
             GrowTowerDomes(grid, primary, spine, centerZ, y,
                 Math.Max(1, (int)MathF.Round(HalfWidthOf(primary, centerZ) * 0.29f * scale)),
-                Math.Max(2, (int)MathF.Round(maxHH * 0.3f * scale)));
+                Math.Max(2, (int)MathF.Round(hullHeight * 0.13f * scale)));
         var mastHalf = Math.Max(0, detail / 2);
-        var mastHeight = Math.Max(4, (int)MathF.Round(maxHH * 2.2f * scale));
+        var mastHeight = Math.Max(4, (int)MathF.Round(hullHeight * 0.95f * scale));
 
         for (var dy = 1; dy <= mastHeight; dy++)
             for (var dx = -mastHalf; dx <= mastHalf; dx++)
