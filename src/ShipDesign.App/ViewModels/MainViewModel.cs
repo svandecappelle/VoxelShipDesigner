@@ -316,7 +316,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // Counts move by at most one. A fighter that grew from two engines to six would no longer
         // be a variation of anything.
         p.Decks = Step(p.Decks, 1, 12);
-        p.EngineCount = Step(p.EngineCount, 1, 10);
+        p.EngineCount = Step(p.EngineCount, 0, 10);
         p.TurretCount = Step(p.TurretCount, 0, 24);
         p.WheelSpokes = Step(p.WheelSpokes, 0, 12);
 

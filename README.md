@@ -78,7 +78,7 @@ univers, un pli repliable par franchise.
 | Archétypes | Cargo lourd | Corps cubique, tourelle massive, mât d'antenne |
 | Archétypes | Catamaran | Deux coques parallèles reliées par des entretoises |
 | Archétypes | Soucoupe | Disque à terrasses concentriques et nervures radiales |
-| Archétypes | Anneau | Roue : bande annulaire, rayons et moyeu central |
+| Archétypes | Anneau | Roue : bande annulaire, rayons, moyeu et fuseau axial — une station, sans propulsion |
 
 Trois façons de laisser le hasard décider, du plus doux au plus brutal :
 
@@ -109,6 +109,9 @@ n'aurait alors aucun effet visible.
 Le contour d'un disque — soucoupe comme anneau — suit exactement son profil, sans l'ondulation que
 les autres coques reçoivent : un cercle qui ondule n'en est plus un. Le diamètre vaut la longueur,
 et le maître-bau ne s'applique pas.
+
+Le nombre de tuyères descend à **zéro** : une station ne va nulle part, et lui en imposer une posait
+une tuyère d'échappement sur quelque chose d'immobile. C'est ce que la silhouette Anneau demande.
 
 **Une roue n'a pas de haut.** C'est ce qui la distingue d'un vaisseau, et les structures qui
 supposent un dessus sont donc traitées à part sur une coque annulaire : pas d'arête dorsale, et la

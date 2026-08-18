@@ -274,7 +274,7 @@ public sealed record ShipSilhouette(string Universe, string Name, string Summary
             }),
 
         Of(Archetypes, "Anneau",
-            "Roue : bande annulaire, six rayons et un moyeu central, moteurs sur la bande",
+            "Roue : bande annulaire, six rayons, moyeu central et fuseau axial — une station, sans propulsion",
             p =>
             {
                 p.HullClass = HullClass.Cruiser;
@@ -290,7 +290,7 @@ public sealed record ShipSilhouette(string Universe, string Name, string Summary
                 p.Depth = 2.2f;
                 p.Decks = 3;
                 p.WingStyle = WingStyle.None;
-                p.EngineCount = 2;
+                p.EngineCount = 0;   // une station ne va nulle part
                 p.EngineStyle = EngineStyle.Ring;
                 p.CockpitStyle = CockpitStyle.None;
                 p.Superstructure = true;

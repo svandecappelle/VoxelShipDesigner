@@ -2107,6 +2107,11 @@ public static class VoxelShipGrower
 
     private static void GrowEnginesOnHull(VoxelGrid grid, ShipParameters p, HullColumn hull, int len, int maxHH)
     {
+        // No engines is a real answer, not a value to be clamped away. A station -- the wheel most
+        // of all -- does not have thrusters, and forcing one onto its rim put an exhaust bell on
+        // something that is not going anywhere.
+        if (p.EngineCount <= 0) return;
+
         var env = hull.Envelope;
 
         // This hull's own stern, not the ship's. A saucer stops short of the stern, and its engines
@@ -2114,7 +2119,7 @@ public static class VoxelShipGrower
         var tailZ = env.LastZ;
         var tailHalfWidth = Math.Max(2, HalfWidthOf(hull, tailZ));
         var tailTop = Math.Max(1, (int)MathF.Round(env.Top[tailZ]));
-        var count = Math.Max(1, p.EngineCount);
+        var count = p.EngineCount;
         var radius = Math.Max(2, (int)MathF.Round(MathF.Min(tailHalfWidth, maxHH) * (count <= 2 ? 0.85f : 0.6f)));
 
         var positions = new List<(int X, int Y)>();

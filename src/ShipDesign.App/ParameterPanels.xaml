@@ -224,7 +224,8 @@
                 <TextBlock Text="Nombre de tuyères" Style="{StaticResource FieldLabelStyle}" HorizontalAlignment="Left" />
                 <TextBlock Style="{StaticResource FieldValueStyle}" HorizontalAlignment="Right" Text="{Binding EngineCount}" />
             </Grid>
-            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="1" Maximum="10" Value="{Binding EngineCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10" />
+            <Slider Style="{StaticResource ThemedSliderStyle}" Minimum="0" Maximum="10" Value="{Binding EngineCount}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,10"
+                    ToolTip="Zéro est permis : une station n'a pas de propulseurs." />
 
             <ListBox Style="{StaticResource SegmentedListBoxStyle}" ItemsSource="{Binding EngineStyles}" SelectedItem="{Binding EngineStyle}">
                 <ListBox.ItemTemplate>
