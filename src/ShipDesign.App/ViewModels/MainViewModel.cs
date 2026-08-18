@@ -189,6 +189,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand ApplySeedCommand { get; }
     public ICommand RerollSeedCommand { get; }
     public ICommand RandomizeShipCommand { get; }
+    public ICommand VaryShipCommand { get; }
     public ICommand ApplySilhouetteCommand { get; }
     public ICommand SetHullColorCommand { get; }
     public ICommand SetAccentColorCommand { get; }
@@ -203,6 +204,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ApplySeedCommand = new RelayCommand(_ => ApplySeed());
         RerollSeedCommand = new RelayCommand(_ => RerollSeed());
         RandomizeShipCommand = new RelayCommand(_ => Randomize());
+        VaryShipCommand = new RelayCommand(_ => Vary());
         ApplySilhouetteCommand = new RelayCommand(s => ApplySilhouette((ShipSilhouette)s!));
         SetHullColorCommand = new RelayCommand(c => HullColor = (Color)c!);
         SetAccentColorCommand = new RelayCommand(c => AccentColor = (Color)c!);
@@ -244,6 +246,82 @@ public sealed class MainViewModel : INotifyPropertyChanged
         StatusText = $"Silhouette « {silhouette.Name} » appliquée — {silhouette.Summary}.";
         Rebuild();
     }
+
+    /// <summary>
+    /// Another individual of the same kind of ship.
+    ///
+    /// Everything that decides *what* the ship is stays put -- hull arrangement, both planforms,
+    /// wing style, engine and cockpit style, nacelle mount and lighting, and every on/off switch.
+    /// Only the continuous proportions move, and only a little, plus a fresh seed.
+    ///
+    /// This is deliberately not "reroll the seed", which the ↻ beside the seed field already does:
+    /// the seed alone varies where the greebles fall and roughly where the wings and tower sit, but
+    /// every ship it produces has exactly the same proportions. Nor is it the full randomiser, which
+    /// throws the silhouette away. What was missing is the middle: a second ship of the same class.
+    /// </summary>
+    private void Vary()
+    {
+        var p = _parameters;
+
+        p.Seed = _random.Next(1, 1_000_000);
+        _seedText = p.Seed.ToString();
+
+        p.Length = Drift(p.Length, 4f, 90f);
+        p.Beam = Drift(p.Beam, 0.6f, 18f);
+        p.Depth = Drift(p.Depth, 0.3f, 12f);
+        p.Taper = Drift(p.Taper, 0f, 1f);
+        p.KeelFlatness = Drift(p.KeelFlatness, 0f, 1f);
+        p.HullSpacing = Drift(p.HullSpacing, 0.1f, 6f);
+        p.PrimaryHullFraction = Drift(p.PrimaryHullFraction, 0.2f, 0.8f);
+        p.SecondaryHullDrop = Drift(p.SecondaryHullDrop, 0.2f, 4f);
+        p.SecondaryHullLength = Drift(p.SecondaryHullLength, 0.25f, 1f);
+
+        p.WingSpan = Drift(p.WingSpan, 0.5f, 36f);
+        p.WingSweepDegrees = Drift(p.WingSweepDegrees, -30f, 85f);
+        p.CannonSize = Drift(p.CannonSize, 0.2f, 4f);
+
+        p.CockpitSize = Drift(p.CockpitSize, 0.15f, 4f);
+        p.SuperstructureSize = Drift(p.SuperstructureSize, 0.15f, 5f);
+        p.TowerPosition = Drift(p.TowerPosition, 0.08f, 0.95f);
+        p.SpineHeight = Drift(p.SpineHeight, 0.1f, 4f);
+
+        p.NacelleWidth = Drift(p.NacelleWidth, 0.1f, 4f);
+        p.NacelleLength = Drift(p.NacelleLength, 0.1f, 4f);
+        p.NacelleSpacing = Drift(p.NacelleSpacing, 0.05f, 6f);
+        p.NacelleRise = Drift(p.NacelleRise, -4f, 4f);
+        p.NacelleSweep = Drift(p.NacelleSweep, 0f, 0.95f);
+        p.PylonChord = Drift(p.PylonChord, 0.2f, 6f);
+
+        p.GreebleDensity = Drift(p.GreebleDensity, 0f, 1f);
+
+        // Counts move by at most one. A fighter that grew from two engines to six would no longer
+        // be a variation of anything.
+        p.Decks = Step(p.Decks, 1, 12);
+        p.EngineCount = Step(p.EngineCount, 1, 10);
+        p.TurretCount = Step(p.TurretCount, 0, 24);
+
+        OnPropertyChanged(string.Empty);
+        StatusText = $"Variante générée sur la même silhouette — graine {p.Seed}.";
+        Rebuild();
+    }
+
+    /// <summary>
+    /// Moves a value by up to 18% of its own magnitude, clamped to the range its slider offers.
+    ///
+    /// Proportional rather than a fixed step, since the same absolute nudge that barely shows on a
+    /// 90 m hull would double a 0.2 pylon chord. The span is added in as a floor so a value sitting
+    /// at zero -- flat keel, no taper -- can still move; multiplied alone it would be stuck there
+    /// forever.
+    /// </summary>
+    private float Drift(float value, float min, float max)
+    {
+        var amplitude = 0.18f * (Math.Abs(value) + (max - min) * 0.08f);
+        var moved = value + ((float)_random.NextDouble() * 2f - 1f) * amplitude;
+        return Math.Clamp(moved, min, max);
+    }
+
+    private int Step(int value, int min, int max) =>
+        Math.Clamp(value + _random.Next(-1, 2), min, max);
 
     private void Randomize()
     {

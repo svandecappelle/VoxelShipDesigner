@@ -347,6 +347,14 @@
         </Setter>
     </Style>
 
+    <!-- A die, drawn rather than typed. U+2684 renders as a missing-glyph box in Cascadia Mono,
+         which is the font every button here uses, so the character route gives a tofu square and
+         not an icon. One geometry with the pips as holes: the default even-odd fill rule punches
+         them out of the face, so a single Path in the accent colour is the whole icon. Square pips
+         rather than round ones stay crisp at 12px and suit a voxel tool. -->
+    <PathGeometry x:Key="DieIcon"
+                  Figures="M0,0 H12 V12 H0 Z M2,2 h2 v2 h-2 Z M8,2 h2 v2 h-2 Z M5,5 h2 v2 h-2 Z M2,8 h2 v2 h-2 Z M8,8 h2 v2 h-2 Z" />
+
     <!-- ============ Silhouette groups ============ -->
 
     <!-- A second, lighter level of folding *inside* the silhouettes section, one fold per universe.

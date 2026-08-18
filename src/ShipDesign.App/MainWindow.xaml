@@ -220,8 +220,16 @@
                         <!-- Rendering and exporting act on the finished ship rather than describing
                              it, so they live over the viewport with the other view controls. What
                              stays here is the one action that changes the parameters themselves. -->
-                        <Button Content="⚄ VAISSEAU ALÉATOIRE" Style="{StaticResource SecondaryButtonStyle}"
-                                Command="{Binding RandomizeShipCommand}" Margin="0,4,0,4" />
+                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding RandomizeShipCommand}" Margin="0,4,0,4"
+                                ToolTip="Tire un vaisseau entièrement neuf, silhouette comprise">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Path Data="{StaticResource DieIcon}" Fill="{StaticResource AccentAmberBrush}"
+                                      Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                                      Margin="0,0,8,0" />
+                                <TextBlock Text="VAISSEAU ALÉATOIRE" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
 
                     </StackPanel>
                 </ScrollViewer>
@@ -333,6 +341,25 @@
                         <Line X1="55" Y1="32" X2="64" Y2="32" Stroke="{StaticResource LineCyanBrush}" StrokeThickness="1" />
                     </Grid>
                 </StackPanel>
+
+                <!-- Another individual of the same class, top-left of the view. It belongs over
+                     the ship rather than in the rail because it is something you do while looking:
+                     press, judge the result, press again. The rail's own random button throws the
+                     silhouette away, and the reroll beside the seed only moves the greebles — this
+                     is the middle one, and the only one worth reaching for repeatedly. -->
+                <Border Style="{StaticResource HudPanelStyle}" Padding="6,5"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16">
+                    <Button Style="{StaticResource ViewButtonStyle}" Margin="0"
+                            Command="{Binding VaryShipCommand}"
+                            ToolTip="Un autre vaisseau du même type : mêmes formes et mêmes options, proportions et graine différentes">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource DieIcon}" Fill="{StaticResource AccentAmberBrush}"
+                                  Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                                  Margin="0,0,7,0" />
+                            <TextBlock Text="VARIANTE" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Border>
 
                 <!-- Framing controls, top-centre. Until now the only way to recover a sane view was
                      to change a parameter and let the automatic re-frame fire, which is not a

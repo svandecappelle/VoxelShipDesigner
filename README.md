@@ -80,9 +80,21 @@ univers, un pli repliable par franchise.
 | Archétypes | Soucoupe | Disque à terrasses concentriques et nervures radiales |
 | Archétypes | Anneau | Coque creuse, structures posées sur la bande |
 
-Le bouton **Vaisseau aléatoire** tire l'ensemble des axes, en resserrant les choix incohérents :
-une coque composée ne reçoit pas d'ailes, et ses deux coques ne sont pas tirées indépendamment,
-sans quoi on obtient deux dalles partageant un col plutôt qu'un vaisseau.
+Trois façons de laisser le hasard décider, du plus doux au plus brutal :
+
+| | Ce qui bouge | Où |
+|---|---|---|
+| ↻ à côté de la graine | La graine seule : les greebles, et le placement fin des ailes et de la tour | Rail, section Graine |
+| **Variante** | Les proportions, d'au plus 18 %, plus une graine neuve. Formes, styles et interrupteurs intacts | Vue 3D, en haut à gauche |
+| **Vaisseau aléatoire** | Tout, silhouette comprise | Rail, en bas |
+
+**Variante** est celle qu'on presse en boucle : elle donne un autre individu de la même classe, pas
+un autre vaisseau. Les comptes (ponts, tuyères, tourelles) ne bougent que d'une unité — un chasseur
+qui passerait de deux à six tuyères ne serait plus une variation de quoi que ce soit.
+
+Le **Vaisseau aléatoire** tire l'ensemble des axes, en resserrant les choix incohérents : une coque
+composée ne reçoit pas d'ailes, et ses deux coques ne sont pas tirées indépendamment, sans quoi on
+obtient deux dalles partageant un col plutôt qu'un vaisseau.
 
 ## Naviguer dans la vue 3D
 
