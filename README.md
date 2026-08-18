@@ -106,6 +106,12 @@ Un moyeu réclame au moins trois rayons et les impose s'il en manque : sans eux 
 la bande, et le balayage de fragments le supprimerait purement et simplement — la case à cocher
 n'aurait alors aucun effet visible.
 
+**Une roue n'a pas de haut.** C'est ce qui la distingue d'un vaisseau, et les structures qui
+supposent un dessus sont donc traitées à part sur une coque annulaire : pas d'arête dorsale, et la
+tourelle de commandement n'est pas plantée sur la jante mais devient un **fuseau traversant le
+moyeu**, sortant autant d'un côté que de l'autre, avec un feu identique à chaque extrémité. Le
+plan de la roue reste ainsi un plan de symétrie.
+
 ## Naviguer dans la vue 3D
 
 La barre en haut de la vue donne le cadrage et les angles :

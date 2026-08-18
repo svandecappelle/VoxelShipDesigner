@@ -585,7 +585,9 @@ public static class VoxelShipGrower
 
         // Before the wings and pods, so those spring from the hull rather than from the ridge, and
         // after the terraces, so the ridge sits on the stepped deck rather than through it.
-        if (p.DorsalSpine)
+        // A ridge along the top of a wheel's rim would give it an up, which is the one thing a
+        // wheel does not have.
+        if (p.DorsalSpine && primary.Shape != HullShape.Ring)
             GrowDorsalSpine(grid, p, primary, lengthVoxels, maxHalfHeight);
 
         if (p.WingStyle != WingStyle.None)
@@ -601,7 +603,10 @@ public static class VoxelShipGrower
         if (p.Nacelles)
             GrowNacelles(grid, p, hulls, layout, lengthVoxels, maxHalfHeight);
 
-        if (p.Superstructure && p.HullClass != HullClass.Fighter)
+        // Same reason, and the wheel has somewhere better to put it: a bridge planted on the rim
+        // is what gave the ring a top and a bottom. On an annular hull the command structure is a
+        // spindle through the hub instead, built with the wheel above.
+        if (p.Superstructure && p.HullClass != HullClass.Fighter && primary.Shape != HullShape.Ring)
             GrowSuperstructure(grid, p, primary, layout, lengthVoxels, maxHalfHeight);
 
         GrowEngines(grid, p, hulls, lengthVoxels, maxHalfHeight);
@@ -1309,7 +1314,13 @@ public static class VoxelShipGrower
         if (inner < 3) return;
 
         var detail = DetailUnit(len);
-        var midY = env.CentreY;
+
+        // The band's own mid-height, not CentreY. The two are not the same: the section's deck and
+        // keel are shaped independently, so its middle sits at CentreY + (Top - Bottom) / 2, and
+        // hanging the hub and spokes off CentreY left the whole wheel a couple of voxels low
+        // against the ring it is supposed to be the centre of.
+        var bandZ = Math.Clamp((env.FirstZ + env.LastZ) / 2, 0, len - 1);
+        var midY = env.CentreY + (env.Top[bandZ] - env.Bottom[bandZ]) / 2;
 
         // A hub with nothing holding it is a hub the fragment sweep deletes, so asking for one asks
         // for the arms that carry it. Three rather than two: a pair reads as an axle through the
@@ -1380,6 +1391,49 @@ public static class VoxelShipGrower
                     grid.Set(hull.XOffset + dx, midY + dy, z, material);
                 }
             }
+
+        if (!p.Superstructure) return;
+
+        // The command structure, as a spindle along the axis rather than a bridge on the rim.
+        //
+        // A wheel has no up: a tower planted on the band gives it one, and it was the single
+        // biggest thing doing so -- the ring reached 16 voxels above its own plane and 9 below.
+        // Run through the hub and out both ways, the same structure keeps the wheel symmetric about
+        // its plane and puts the command core where a rotating station's actually is, on the axis.
+        var scale = Math.Max(0.1f, p.SuperstructureSize);
+        var spindleRadius = Math.Max(1, (int)MathF.Round(hubRadius * 0.38f));
+        var reach = Math.Max(3, (int)MathF.Round(hubHalfHeight * 2.4f * scale));
+
+        for (var dy = -reach; dy <= reach; dy++)
+        {
+            var t = MathF.Abs(dy) / reach;
+            var r = Math.Max(1, (int)MathF.Round(spindleRadius * (1f - t * t * 0.4f)));
+
+            // A collar near each end, so the spindle reads as a docking mast with two ends rather
+            // than as a pin pushed through the hub.
+            var collar = MathF.Abs(t - 0.78f) < 0.09f;
+            if (collar) r += Math.Max(1, spindleRadius / 2);
+
+            for (var dx = -r; dx <= r; dx++)
+                for (var dz = -r; dz <= r; dz++)
+                {
+                    if (dx * dx + dz * dz > r * r + r) continue;
+                    var z = centreZ + dz;
+                    if (z < 0 || z >= len) continue;
+                    grid.Set(hull.XOffset + dx, midY + dy, z,
+                        collar ? VoxelMaterial.Panel : VoxelMaterial.Hull);
+                }
+        }
+
+        // Lit tips at both ends: the same lamp at each, since neither end is the top.
+        foreach (var end in new[] { -reach, reach })
+            for (var dx = -1; dx <= 1; dx++)
+                for (var dz = -1; dz <= 1; dz++)
+                {
+                    var z = centreZ + dz;
+                    if (z < 0 || z >= len) continue;
+                    grid.Set(hull.XOffset + dx, midY + end, z, VoxelMaterial.Glow);
+                }
     }
 
     private static void AddDeckTerraces(VoxelGrid grid, ShipParameters p, HullColumn primary, int len)
