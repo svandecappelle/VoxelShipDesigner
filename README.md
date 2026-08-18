@@ -64,20 +64,21 @@ Quelques comportements voulus :
 ## Silhouettes
 
 Huit préréglages posent d'un clic la vingtaine de paramètres qui font un type reconnaissable, sans
-toucher à la graine ni à la livrée, qui appartiennent à l'utilisateur.
+toucher à la graine ni à la livrée, qui appartiennent à l'utilisateur. Le rail les range par
+univers, un pli repliable par franchise.
 
 ![Silhouettes](docs/images/03-silhouettes.png)
 
-| Silhouette | Ce qui la caractérise |
-|---|---|
-| Croiseur Starfleet | Soucoupe + coque d'ingénierie reliées par un col, nacelles warp sur pylônes en lame, déflecteur |
-| Destroyer impérial | Coin plat à quille plate, passerelle tout à l'arrière, dômes senseurs |
-| Chasseur X | Fuselage court, quatre ailerons en croix, canons en bout d'aile |
-| Chasseur | Coque fine, ailes en flèche, verrière bulle |
-| Cargo lourd | Corps cubique, tourelle massive, mât d'antenne |
-| Catamaran | Deux coques parallèles reliées par des entretoises |
-| Soucoupe | Disque à terrasses concentriques et nervures radiales |
-| Anneau | Coque creuse, structures posées sur la bande |
+| Univers | Silhouette | Ce qui la caractérise |
+|---|---|---|
+| Star Trek | Croiseur Starfleet | Soucoupe + coque d'ingénierie reliées par un col, nacelles warp sur pylônes en lame, déflecteur |
+| Star Wars | Destroyer impérial | Coin plat à quille plate, passerelle tout à l'arrière, dômes senseurs |
+| Star Wars | Chasseur X | Fuselage court, quatre ailerons en croix, canons en bout d'aile |
+| Archétypes | Chasseur | Coque fine, ailes en flèche, verrière bulle |
+| Archétypes | Cargo lourd | Corps cubique, tourelle massive, mât d'antenne |
+| Archétypes | Catamaran | Deux coques parallèles reliées par des entretoises |
+| Archétypes | Soucoupe | Disque à terrasses concentriques et nervures radiales |
+| Archétypes | Anneau | Coque creuse, structures posées sur la bande |
 
 Le bouton **Vaisseau aléatoire** tire l'ensemble des axes, en resserrant les choix incohérents :
 une coque composée ne reçoit pas d'ailes, et ses deux coques ne sont pas tirées indépendamment,
@@ -219,7 +220,16 @@ occlusion ambiante qui se calcule sur le voisinage plutôt que sur une soupe de 
   la passe. Les sélecteurs de l'interface itèrent sur `Enum.GetValues<T>()` et se mettent à jour
   seuls ; penser au libellé français dans
   [EnumLabelConverter](src/ShipDesign.App/Converters/EnumLabelConverter.cs).
-- **Nouvelle silhouette** : une entrée dans `ShipSilhouette.All`.
+- **Nouvelle silhouette** : une entrée dans `ShipSilhouette.All`, préfixée par son univers. Les
+  univers sont de simples chaînes (`ShipSilhouette.StarTrek`, `StarWars`, `Archetypes`, ou
+  n'importe quelle autre) et les groupes du rail sont dérivés de la liste : ajouter une silhouette
+  dans un univers encore inexistant fait apparaître son pli tout seul, sans rien déclarer ailleurs.
+
+  ```csharp
+  Of("Babylon 5", "Croiseur Whitestar",
+     "Coque organique effilée, ailes portantes vers l'avant",
+     p => { p.HullShape = HullShape.Dart; /* ... */ }),
+  ```
 - **Nouvelle pièce** : une passe dans `VoxelShipGrower`, appelée depuis `Grow`. La seule règle qui
   compte est de l'asseoir sur la surface **réelle** (`TopFilledY`) et non sur l'enveloppe : la
   ligne de pont de l'enveloppe et la surface sur laquelle une structure repose ne sont pas à la

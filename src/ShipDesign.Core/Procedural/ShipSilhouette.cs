@@ -20,7 +20,7 @@ namespace ShipDesign.Core.Procedural;
 /// produces a fighter with a cruiser's canopy. Copying wholesale also means a parameter added later
 /// is carried by every silhouette without any of them being touched.
 /// </summary>
-public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParameters> Template)
+public sealed record ShipSilhouette(string Universe, string Name, string Summary, Func<ShipParameters> Template)
 {
     /// <summary>What a silhouette must not touch: the seed and the livery belong to the user, not
     /// to the shape.</summary>
@@ -41,12 +41,19 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 property.SetValue(target, property.GetValue(template));
     }
 
-    private static ShipSilhouette Of(string name, string summary, Action<ShipParameters> build) =>
-        new(name, summary, () => { var p = new ShipParameters(); build(p); return p; });
+    private static ShipSilhouette Of(string universe, string name, string summary, Action<ShipParameters> build) =>
+        new(universe, name, summary, () => { var p = new ShipParameters(); build(p); return p; });
+
+    /// <summary>Names of the universes, in the order they should be offered. Free-form strings
+    /// rather than an enum on purpose: adding a variant for a new franchise should be one entry in
+    /// <see cref="All"/> and nothing else, with the group appearing by itself.</summary>
+    public const string StarTrek = "Star Trek";
+    public const string StarWars = "Star Wars";
+    public const string Archetypes = "Archétypes";
 
     public static IReadOnlyList<ShipSilhouette> All { get; } = new[]
     {
-        Of("Croiseur Starfleet",
+        Of(StarTrek, "Croiseur Starfleet",
             "Soucoupe portée devant et au-dessus d'une coque d'ingénierie, nacelles warp sur pylônes en lame",
             p =>
             {
@@ -81,7 +88,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.55f;
             }),
 
-        Of("Destroyer impérial",
+        Of(StarWars, "Destroyer impérial",
             "Coin à quille plate, arête dorsale étagée montant vers une passerelle arrière coiffée de dômes",
             p =>
             {
@@ -119,7 +126,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.85f;
             }),
 
-        Of("Chasseur X",
+        Of(StarWars, "Chasseur X",
             "Fuselage court, quatre ailerons en croix, canons en bout d'aile",
             p =>
             {
@@ -150,7 +157,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.3f;
             }),
 
-        Of("Chasseur",
+        Of(Archetypes, "Chasseur",
             "Coque en dard, ailes en flèche, pods de propulsion suspendus sous les ailes",
             p =>
             {
@@ -184,7 +191,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.35f;
             }),
 
-        Of("Cargo lourd",
+        Of(Archetypes, "Cargo lourd",
             "Coque en bloc, ponts empilés, tuyères en anneau, hérissé de superstructures",
             p =>
             {
@@ -216,7 +223,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.9f;
             }),
 
-        Of("Catamaran",
+        Of(Archetypes, "Catamaran",
             "Deux coques en coin reliées par des entretoises, ailerons verticaux",
             p =>
             {
@@ -242,7 +249,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.6f;
             }),
 
-        Of("Soucoupe",
+        Of(Archetypes, "Soucoupe",
             "Un seul disque terrassé, sans ailes ni pods : la soucoupe classique",
             p =>
             {
@@ -266,7 +273,7 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.7f;
             }),
 
-        Of("Anneau",
+        Of(Archetypes, "Anneau",
             "Coque annulaire creuse, moteurs sur la bande, pods déportés",
             p =>
             {
@@ -298,4 +305,19 @@ public sealed record ShipSilhouette(string Name, string Summary, Func<ShipParame
                 p.GreebleDensity = 0.6f;
             }),
     };
+
+    /// <summary>
+    /// The silhouettes grouped by universe, each group in the order its first member appears in
+    /// <see cref="All"/>. Built from <see cref="All"/> rather than declared separately so the two
+    /// cannot drift: a silhouette added to the list is in a group by construction, and one whose
+    /// universe is misspelled shows up as its own group instead of vanishing.
+    /// </summary>
+    public static IReadOnlyList<SilhouetteGroup> Groups { get; } = All
+        .GroupBy(s => s.Universe)
+        .Select(g => new SilhouetteGroup(g.Key, g.ToArray()))
+        .ToArray();
 }
+
+/// <summary>One franchise's worth of silhouettes, for a sidebar that offers them a family at a
+/// time rather than as one undifferentiated column.</summary>
+public sealed record SilhouetteGroup(string Universe, IReadOnlyList<ShipSilhouette> Silhouettes);

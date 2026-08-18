@@ -101,15 +101,24 @@
                              un type de vaisseau reconnaissable, sans toucher à la graine ni à la
                              livrée, qui appartiennent à l'utilisateur. -->
                         <Expander Style="{StaticResource AccordionStyle}" Header="SILHOUETTES" IsExpanded="True">
-                            <ItemsControl ItemsSource="{Binding Silhouettes}">
+                            <ItemsControl ItemsSource="{Binding SilhouetteGroups}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                Content="{Binding Name}" ToolTip="{Binding Summary}"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                                Padding="10,6" Margin="0,0,0,4"
-                                                Command="{Binding DataContext.ApplySilhouetteCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}" />
+                                        <Expander Style="{StaticResource SilhouetteGroupStyle}"
+                                                  IsExpanded="{Binding IsExpanded, Mode=TwoWay}">
+                                            <ItemsControl ItemsSource="{Binding Silhouettes}" Margin="0,0,0,4">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{Binding Name}" ToolTip="{Binding Summary}"
+                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                                Padding="10,6" Margin="0,0,0,4"
+                                                                Command="{Binding DataContext.ApplySilhouetteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Expander>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

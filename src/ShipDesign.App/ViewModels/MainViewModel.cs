@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -56,7 +57,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public IReadOnlyList<WingStyle> WingStyles { get; } = Enum.GetValues<WingStyle>();
     public IReadOnlyList<EngineStyle> EngineStyles { get; } = Enum.GetValues<EngineStyle>();
     public IReadOnlyList<CockpitStyle> CockpitStyles { get; } = Enum.GetValues<CockpitStyle>();
-    public IReadOnlyList<ShipSilhouette> Silhouettes { get; } = ShipSilhouette.All;
+    /// <summary>The silhouettes as the sidebar offers them: one collapsible fold per universe.
+    /// Built once, since neither the catalogue nor the grouping changes at runtime.</summary>
+    public IReadOnlyList<SilhouetteGroupViewModel> SilhouetteGroups { get; } =
+        ShipSilhouette.Groups.Select(g => new SilhouetteGroupViewModel(g)).ToArray();
     public IReadOnlyList<HullArrangement> HullArrangements { get; } = Enum.GetValues<HullArrangement>();
     public IReadOnlyList<NacelleMount> NacelleMounts { get; } = Enum.GetValues<NacelleMount>();
     public IReadOnlyList<NacelleStyle> NacelleStyles { get; } = Enum.GetValues<NacelleStyle>();
